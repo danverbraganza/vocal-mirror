@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import VocalMirror from './VocalMirror.js';
+import VocalMirror from './VocalMirror';
+
+type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'paused' | 'error';
 
 function App() {
-  const [state, setState] = useState('idle'); // idle, ready, recording, playing, paused, error
-  const [volume, setVolume] = useState(null);
+  const [state, setState] = useState<AppState>('idle');
+  const [volume, setVolume] = useState<number | null>(null);
   const [bufferDuration, setBufferDuration] = useState(0);
-  const [error, setError] = useState(null);
-  const vocalMirrorRef = useRef(null);
+  const [error, setError] = useState<string | null>(null);
+  const vocalMirrorRef = useRef<VocalMirror | null>(null);
 
   useEffect(() => {
     // Initialize VocalMirror when component mounts
@@ -63,34 +65,26 @@ function App() {
     }
   };
 
-  const getButtonText = () => {
-    switch (state) {
-      case 'idle': return 'Initialize Microphone';
-      case 'ready': return 'Start Recording';
-      case 'recording': return 'Pause';
-      case 'playing': return 'Pause';
-      case 'paused': return 'Resume';
-      case 'error': return 'Try Again';
-      default: return 'Loading...';
-    }
-  };
+  const buttonText = {
+    idle: 'Initialize Microphone',
+    ready: 'Start Recording', 
+    recording: 'Pause',
+    playing: 'Pause',
+    paused: 'Resume',
+    error: 'Try Again'
+  }[state] || 'Loading...';
 
-  const getStatusText = () => {
-    switch (state) {
-      case 'idle': return 'Ready to initialize';
-      case 'ready': return 'Microphone ready';
-      case 'recording': return `Recording... (${bufferDuration.toFixed(1)}s)`;
-      case 'playing': return 'Playing back recording';
-      case 'paused': return 'Paused - click Resume to continue';
-      case 'error': return 'Error occurred';
-      default: return state;
-    }
-  };
+  const statusText = {
+    idle: 'Ready to initialize',
+    ready: 'Microphone ready',
+    recording: `Recording... (${bufferDuration.toFixed(1)}s)`,
+    playing: 'Playing back recording',
+    paused: 'Paused - click Resume to continue',
+    error: 'Error occurred'
+  }[state] || state;
 
-  const formatVolume = (volumeDb) => {
-    if (volumeDb === null || volumeDb === -Infinity) return 'Silent';
-    return `${volumeDb.toFixed(1)} dB`;
-  };
+  const formatVolume = (volumeDb: number | null) => 
+    volumeDb === null || volumeDb === -Infinity ? 'Silent' : `${volumeDb.toFixed(1)} dB`;
 
   return (
     <div id="wrapper">
@@ -100,7 +94,7 @@ function App() {
       </div>
       <div id="display">
         <div className="subHeading">
-          Status: <span className="cost">{getStatusText()}</span>
+          Status: <span className="cost">{statusText}</span>
         </div>
         
         {state === 'recording' && volume !== null && (
@@ -120,7 +114,7 @@ function App() {
           onClick={handleButtonClick}
           disabled={state === 'loading'}
         >
-          {getButtonText()}
+          {buttonText}
         </button>
         
         {state === 'recording' && (
