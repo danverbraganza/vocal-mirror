@@ -1,7 +1,10 @@
-build: # Todo
-	# Build the js package for development
+install:
+	npm install
 
-local: vocal-mirror.js
-	# Serve the local package for development
+build:
+	npm run build
 
-.PHONY: local
+dev:
+	npm run dev
+
+.PHONY: install build dev
