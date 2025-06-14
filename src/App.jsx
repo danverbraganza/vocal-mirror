@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror.js';
 
 function App() {
-  const [state, setState] = useState('idle'); // idle, ready, recording, playing, error
+  const [state, setState] = useState('idle'); // idle, ready, recording, playing, paused, error
   const [volume, setVolume] = useState(null);
   const [bufferDuration, setBufferDuration] = useState(0);
   const [error, setError] = useState(null);
@@ -45,11 +45,15 @@ function App() {
         break;
       
       case 'recording':
-        vocalMirrorRef.current.stopRecording();
+      case 'playing':
+        // Pause the vocal mirror to break the auto-cycle
+        vocalMirrorRef.current.pause();
         break;
       
-      case 'playing':
-        vocalMirrorRef.current.stop();
+      case 'paused':
+        // Resume the auto-cycle by starting recording
+        vocalMirrorRef.current.resume();
+        await vocalMirrorRef.current.startRecording();
         break;
       
       case 'error':
@@ -63,8 +67,9 @@ function App() {
     switch (state) {
       case 'idle': return 'Initialize Microphone';
       case 'ready': return 'Start Recording';
-      case 'recording': return 'Stop Recording';
-      case 'playing': return 'Stop Playback';
+      case 'recording': return 'Pause';
+      case 'playing': return 'Pause';
+      case 'paused': return 'Resume';
       case 'error': return 'Try Again';
       default: return 'Loading...';
     }
@@ -76,6 +81,7 @@ function App() {
       case 'ready': return 'Microphone ready';
       case 'recording': return `Recording... (${bufferDuration.toFixed(1)}s)`;
       case 'playing': return 'Playing back recording';
+      case 'paused': return 'Paused - click Resume to continue';
       case 'error': return 'Error occurred';
       default: return state;
     }
@@ -120,8 +126,9 @@ function App() {
         {state === 'recording' && (
           <div className="subHeading">
             <small>
-              Recording will automatically play back when you stop speaking
-              or after 5 minutes. Click "Stop Recording" to play back immediately.
+              Recording will automatically play back when you stop speaking (0.5s silence)
+              or after 5 minutes. Then it will automatically start recording again.
+              Click "Pause" to stop the automatic cycle.
             </small>
           </div>
         )}
@@ -129,7 +136,17 @@ function App() {
         {state === 'playing' && (
           <div className="subHeading">
             <small>
-              Click "Stop Playback" to return to recording mode.
+              Playback will automatically start recording again when finished.
+              Click "Pause" to stop the automatic cycle.
+            </small>
+          </div>
+        )}
+        
+        {state === 'paused' && (
+          <div className="subHeading">
+            <small>
+              Vocal Mirror is paused. Click "Resume" to start the automatic 
+              record → playback → record cycle again.
             </small>
           </div>
         )}

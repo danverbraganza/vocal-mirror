@@ -12,7 +12,7 @@ class VocalMirror {
     // Configuration
     this.maxRecordingDuration = options.maxRecordingDuration || 300; // 5 minutes
     this.volumeThreshold = options.volumeThreshold || -50; // dB
-    this.silenceDuration = options.silenceDuration || 2000; // ms
+    this.silenceDuration = options.silenceDuration || 500; // ms
     
     // Components
     this.recorder = null;
@@ -21,8 +21,9 @@ class VocalMirror {
     this.buffer = null;
     
     // State
-    this.state = 'idle'; // idle, recording, playing, error
+    this.state = 'idle'; // idle, ready, recording, playing, paused, error
     this.isInitialized = false;
+    this.isPaused = false;
     
     // Callbacks
     this.onStateChange = options.onStateChange || (() => {});
@@ -174,6 +175,27 @@ class VocalMirror {
   }
 
   /**
+   * Pause the vocal mirror (stops auto-recording cycle)
+   */
+  pause() {
+    this.isPaused = true;
+    if (this.state === 'recording') {
+      this.recorder.stopRecording();
+    } else if (this.state === 'playing') {
+      this.playback.stop();
+    }
+    this._setState('paused');
+  }
+
+  /**
+   * Resume the vocal mirror (allows auto-recording cycle to continue)
+   */
+  resume() {
+    this.isPaused = false;
+    this._setState('ready');
+  }
+
+  /**
    * Get current system state
    * @returns {Object} State information
    */
@@ -181,6 +203,7 @@ class VocalMirror {
     return {
       state: this.state,
       isInitialized: this.isInitialized,
+      isPaused: this.isPaused,
       bufferDuration: this.buffer ? this.buffer.getDuration() : 0,
       bufferSamples: this.buffer ? this.buffer.getSampleCount() : 0,
       isRecording: this.recorder ? this.recorder.getState().isRecording : false,
@@ -205,6 +228,35 @@ class VocalMirror {
       if (this.analyzer) {
         this.analyzer.updateSettings({ silenceDuration: options.silenceDuration });
       }
+    }
+  }
+
+  /**
+   * Automatically start recording after playback completes
+   * @private
+   */
+  async _autoStartRecording() {
+    // Don't auto-start if paused
+    if (this.isPaused) {
+      this._setState('paused');
+      return;
+    }
+
+    try {
+      this.buffer.clear();
+      this.analyzer.reset();
+      const started = await this.recorder.startRecording();
+      if (started) {
+        this._setState('recording');
+      } else {
+        this._setState('ready');
+      }
+    } catch (error) {
+      this._handleError({
+        type: 'auto-recording',
+        message: 'Failed to automatically start recording',
+        error
+      });
     }
   }
 
@@ -335,8 +387,8 @@ class VocalMirror {
   }
 
   _handlePlaybackEnd(info) {
-    // Return to ready state when playback completes
-    this._setState('ready');
+    // Automatically start recording again after playback completes
+    this._autoStartRecording();
   }
 
   _handlePlaybackError(error) {
