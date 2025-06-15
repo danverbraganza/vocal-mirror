@@ -66,21 +66,21 @@ function App() {
   };
 
   const buttonText = {
-    idle: 'Initialize Microphone',
-    ready: 'Start Recording', 
-    recording: 'Pause',
-    playing: 'Pause',
-    paused: 'Resume',
+    idle: 'Ready',
+    ready: 'Ready', 
+    recording: 'Listening',
+    playing: 'Playing',
+    paused: 'Ready',
     error: 'Try Again'
   }[state] || 'Loading...';
 
   const statusText = {
-    idle: 'Ready to initialize',
-    ready: 'Microphone ready',
-    recording: `Recording... (${bufferDuration.toFixed(1)}s)`,
-    playing: 'Playing back recording',
-    paused: 'Paused - click Resume to continue',
-    error: 'Error occurred'
+    idle: 'Click to initialize microphone',
+    ready: 'Click to start listening',
+    recording: `Listening... (${bufferDuration.toFixed(1)}s)`,
+    playing: 'Playing back your recording',
+    paused: 'Click to resume',
+    error: 'Error occurred - click to retry'
   }[state] || state;
 
   const formatVolume = (volumeDb: number | null) => 
@@ -90,19 +90,11 @@ function App() {
     <div id="wrapper">
       <h1>Vocal Mirror</h1>
       <div className="copy">
-        A simple web tool for vocal practice.
+        Vocal Mirror is a simple web tool to enable vocal practice with rapid feedback. 
+        Vocal Mirror will listen for you to speak or sing, and then replay that to you 
+        as soon as you stop.
       </div>
       <div id="display">
-        <div className="subHeading">
-          Status: <span className="cost">{statusText}</span>
-        </div>
-        
-        {state === 'recording' && volume !== null && (
-          <div className="subHeading">
-            Volume: <span className="cost">{formatVolume(volume)}</span>
-          </div>
-        )}
-        
         {error && (
           <div className="subHeading" style={{ color: 'red' }}>
             Error: {error}
@@ -110,19 +102,27 @@ function App() {
         )}
         
         <button 
-          className="button center"
+          className={`button center status-button ${state === 'recording' ? 'recording' : ''} ${state === 'playing' ? 'playing' : ''}`}
           onClick={handleButtonClick}
           disabled={state === 'loading'}
         >
-          {buttonText}
+          <div className="button-content">
+            <div className="button-text">{buttonText}</div>
+            <div className="status-text">{statusText}</div>
+          </div>
         </button>
+        
+        {state === 'recording' && volume !== null && (
+          <div className="subHeading">
+            Volume: <span className="cost">{formatVolume(volume)}</span>
+          </div>
+        )}
         
         {state === 'recording' && (
           <div className="subHeading">
             <small>
-              Recording will automatically play back when you stop speaking (0.5s silence)
-              or after 5 minutes. Then it will automatically start recording again.
-              Click "Pause" to stop the automatic cycle.
+              Recording will automatically play back when you stop speaking (0.5s silence).
+              Click to stop the cycle.
             </small>
           </div>
         )}
@@ -130,17 +130,7 @@ function App() {
         {state === 'playing' && (
           <div className="subHeading">
             <small>
-              Playback will automatically start recording again when finished.
-              Click "Pause" to stop the automatic cycle.
-            </small>
-          </div>
-        )}
-        
-        {state === 'paused' && (
-          <div className="subHeading">
-            <small>
-              Vocal Mirror is paused. Click "Resume" to start the automatic 
-              record → playback → record cycle again.
+              Playing back your recording. Click to stop the cycle.
             </small>
           </div>
         )}
