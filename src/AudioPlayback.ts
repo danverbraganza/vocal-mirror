@@ -105,7 +105,9 @@ class AudioPlayback {
         // Source might already be stopped
       }
     }
-    this.cleanup();
+    this.isPlaying = false;
+    this.currentSource = null;
+    this.startTime = 0;
   }
 
   isCurrentlyPlaying(): boolean {
@@ -123,7 +125,16 @@ class AudioPlayback {
   }
 
   cleanup(): void {
-    this.stop();
+    if (this.currentSource && this.isPlaying) {
+      try {
+        this.currentSource.stop();
+      } catch {
+        // Source might already be stopped
+      }
+    }
+    this.isPlaying = false;
+    this.currentSource = null;
+    this.startTime = 0;
     this.audioContext?.close();
     this.audioContext = null;
   }
@@ -140,7 +151,9 @@ class AudioPlayback {
 
   private handlePlaybackEnd(): void {
     const duration = this.getPlaybackPosition();
-    this.cleanup();
+    this.isPlaying = false;
+    this.currentSource = null;
+    this.startTime = 0;
     this.onPlaybackEnd({
       duration,
       timestamp: Date.now(),
@@ -148,11 +161,6 @@ class AudioPlayback {
     });
   }
 
-  private cleanup(): void {
-    this.isPlaying = false;
-    this.currentSource = null;
-    this.startTime = 0;
-  }
 }
 
 export default AudioPlayback;

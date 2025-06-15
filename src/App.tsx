@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror';
 
-type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'paused' | 'error';
+type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'paused' | 'error' | 'loading';
 
 function App() {
   const [state, setState] = useState<AppState>('idle');
@@ -71,7 +71,8 @@ function App() {
     recording: 'Listening',
     playing: 'Playing',
     paused: 'Ready',
-    error: 'Try Again'
+    error: 'Try Again',
+    loading: 'Loading...'
   }[state] || 'Loading...';
 
   const statusText = {
@@ -80,7 +81,8 @@ function App() {
     recording: `Listening... (${bufferDuration.toFixed(1)}s)`,
     playing: 'Playing back your recording',
     paused: 'Click to resume',
-    error: 'Error occurred - click to retry'
+    error: 'Error occurred - click to retry',
+    loading: 'Initializing...'
   }[state] || state;
 
   const formatVolume = (volumeDb: number | null) => 
