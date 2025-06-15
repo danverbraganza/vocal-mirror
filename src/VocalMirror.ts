@@ -3,7 +3,7 @@ import AudioAnalyzer from './AudioAnalyzer';
 import AudioPlayback from './AudioPlayback';
 import AudioBuffer from './AudioBuffer';
 
-type VocalMirrorState = 'idle' | 'ready' | 'recording' | 'playing' | 'paused' | 'error';
+type VocalMirrorState = 'idle' | 'ready' | 'recording' | 'playing' | 'recording_and_playing' | 'paused' | 'error';
 
 interface StateChangeInfo {
   oldState: VocalMirrorState;
@@ -46,6 +46,7 @@ class VocalMirror {
   private analyzer: AudioAnalyzer | null = null;
   private playback: AudioPlayback | null = null;
   private buffer: AudioBuffer | null = null;
+  private concurrentBuffer: AudioBuffer | null = null;
   
   private state: VocalMirrorState = 'idle';
   private isInitialized = false;
@@ -69,6 +70,7 @@ class VocalMirror {
 
   private initializeComponents(): void {
     this.buffer = new AudioBuffer(this.maxRecordingDuration);
+    this.concurrentBuffer = new AudioBuffer(this.maxRecordingDuration);
     
     this.analyzer = new AudioAnalyzer({
       volumeThreshold: this.volumeThreshold,
@@ -122,14 +124,22 @@ class VocalMirror {
   async startRecording(): Promise<boolean> {
     if (!this.isInitialized && !(await this.initialize())) return false;
     
-    if (this.state === 'playing') this.playback?.stop();
-
     try {
       const started = await this.recorder!.startRecording();
       if (started) {
-        this.buffer?.clear();
-        this.analyzer?.reset();
-        this.setState('recording');
+        if (this.state === 'playing') {
+          // Start concurrent recording during playback
+          this.concurrentBuffer?.clear();
+          this.concurrentBuffer?.setDiscardInitialSilence(true);
+          this.analyzer?.reset();
+          this.setState('recording_and_playing');
+        } else {
+          // Normal recording
+          this.buffer?.clear();
+          this.buffer?.setDiscardInitialSilence(true);
+          this.analyzer?.reset();
+          this.setState('recording');
+        }
       }
       return started;
     } catch (error) {
@@ -193,8 +203,9 @@ class VocalMirror {
 
   cleanup(): void {
     this.recorder?.cleanup();
-    this.playback?.cleanup();
+    this.playback?.dispose();
     this.buffer?.clear();
+    this.concurrentBuffer?.clear();
     this.isInitialized = false;
     this.setState('idle');
   }
@@ -207,6 +218,7 @@ class VocalMirror {
 
     try {
       this.buffer?.clear();
+      this.buffer?.setDiscardInitialSilence(true);
       this.analyzer?.reset();
       const started = await this.recorder!.startRecording();
       this.setState(started ? 'recording' : 'ready');
@@ -220,18 +232,37 @@ class VocalMirror {
   }
 
   private handleAudioData(audioData: Float32Array, sampleRate: number): void {
-    if (this.state !== 'recording') return;
+    if (this.state !== 'recording' && this.state !== 'recording_and_playing') return;
     
-    this.buffer?.addData(audioData, sampleRate);
-    this.analyzer?.analyze(audioData, sampleRate);
+    // Analyze audio to determine if it's silent
+    const analysis = this.analyzer?.analyze(audioData, sampleRate);
+    const isSilent = analysis?.isSilent || false;
     
-    if ((this.buffer?.getDuration() || 0) >= this.maxRecordingDuration) {
-      this.doTriggerPlayback();
+    if (this.state === 'recording_and_playing') {
+      // Recording during playback - use concurrent buffer
+      this.concurrentBuffer?.addData(audioData, sampleRate, isSilent);
+      
+      if ((this.concurrentBuffer?.getDuration() || 0) >= this.maxRecordingDuration) {
+        // Switch to new recording
+        this.handleConcurrentRecordingComplete();
+      }
+    } else {
+      // Normal recording
+      this.buffer?.addData(audioData, sampleRate, isSilent);
+      
+      if ((this.buffer?.getDuration() || 0) >= this.maxRecordingDuration) {
+        this.doTriggerPlayback();
+      }
     }
   }
 
   private handleSilenceDetected(): void {
-    if (this.state === 'recording') this.doTriggerPlayback();
+    if (this.state === 'recording') {
+      this.doTriggerPlayback();
+    } else if (this.state === 'recording_and_playing') {
+      // User stopped speaking during playback - trigger new playback
+      this.handleConcurrentRecordingComplete();
+    }
   }
 
   private handleVolumeChange(analysis: any): void {
@@ -276,11 +307,21 @@ class VocalMirror {
   }
 
   private handlePlaybackStart(): void {
-    // Handle if needed
+    // Start concurrent recording when playback begins
+    this.startRecording();
   }
 
   private handlePlaybackEnd(): void {
-    this.autoStartRecording();
+    if (this.state === 'recording_and_playing') {
+      // Continue with concurrent recording if it has content
+      if ((this.concurrentBuffer?.getDuration() || 0) > 0) {
+        this.handleConcurrentRecordingComplete();
+      } else {
+        this.setState('recording');
+      }
+    } else {
+      this.autoStartRecording();
+    }
   }
 
   private handlePlaybackError(error: ErrorInfo): void {
@@ -289,6 +330,25 @@ class VocalMirror {
 
   private handlePlaybackInterrupted(): void {
     // Handle if needed
+  }
+
+  private async handleConcurrentRecordingComplete(): Promise<void> {
+    if ((this.concurrentBuffer?.getDuration() || 0) === 0) return;
+    
+    // Stop current playback
+    this.playback?.stop();
+    
+    // Move concurrent buffer data to main buffer
+    const audioData = this.concurrentBuffer!.getAllData();
+    this.buffer?.clear();
+    this.buffer?.addData(audioData, this.recorder!.getSampleRate());
+    this.concurrentBuffer?.clear();
+    
+    // Start playback of new recording
+    this.setState('playing');
+    const sampleRate = this.recorder!.getSampleRate();
+    const started = await this.playback!.playAudio(audioData, sampleRate);
+    if (!started) this.setState('ready');
   }
 }
 

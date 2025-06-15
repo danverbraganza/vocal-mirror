@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror';
 
-type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'paused' | 'error';
+type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'recording_and_playing' | 'paused' | 'error';
 
 function App() {
   const [state, setState] = useState<AppState>('idle');
@@ -70,6 +70,7 @@ function App() {
     ready: 'Ready', 
     recording: 'Listening',
     playing: 'Playing',
+    recording_and_playing: 'Recording',
     paused: 'Ready',
     error: 'Try Again'
   }[state] || 'Loading...';
@@ -79,6 +80,7 @@ function App() {
     ready: 'Click to start listening',
     recording: `Listening... (${bufferDuration.toFixed(1)}s)`,
     playing: 'Playing back your recording',
+    recording_and_playing: 'Recording while playing - speak to interrupt',
     paused: 'Click to resume',
     error: 'Error occurred - click to retry'
   }[state] || state;
@@ -102,9 +104,9 @@ function App() {
         )}
         
         <button 
-          className={`button center status-button ${state === 'recording' ? 'recording' : ''} ${state === 'playing' ? 'playing' : ''}`}
+          className={`button center status-button ${state === 'recording' || state === 'recording_and_playing' ? 'recording' : ''} ${state === 'playing' || state === 'recording_and_playing' ? 'playing' : ''}`}
           onClick={handleButtonClick}
-          disabled={state === 'loading'}
+          disabled={false}
         >
           <div className="button-content">
             <div className="button-text">{buttonText}</div>
@@ -112,7 +114,7 @@ function App() {
           </div>
         </button>
         
-        {state === 'recording' && volume !== null && (
+        {(state === 'recording' || state === 'recording_and_playing') && volume !== null && (
           <div className="subHeading">
             Volume: <span className="cost">{formatVolume(volume)}</span>
           </div>
