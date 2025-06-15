@@ -161,6 +161,6 @@ class AudioPlayback {
       completed: true
     });
   }
-
+}
 
 export default AudioPlayback;
