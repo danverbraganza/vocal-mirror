@@ -9,13 +9,24 @@ class AudioBuffer {
   private chunks: AudioChunk[] = [];
   private currentDuration = 0;
   private sampleRate: number | null = null;
+  private discardSilence = false;
+  private hasReceivedAudio = false;
 
   constructor(maxDurationSeconds = 300) {
     this.maxDurationSeconds = maxDurationSeconds;
   }
 
-  addData(audioData: Float32Array, sampleRate: number): void {
+  addData(audioData: Float32Array, sampleRate: number, isSilent = false): void {
     if (!this.sampleRate) this.sampleRate = sampleRate;
+
+    // If discarding silence and we haven't received non-silent audio yet
+    if (this.discardSilence && !this.hasReceivedAudio) {
+      if (isSilent) {
+        return; // Discard silent audio
+      } else {
+        this.hasReceivedAudio = true; // First non-silent audio received
+      }
+    }
 
     const chunkDuration = audioData.length / sampleRate;
     
@@ -47,6 +58,14 @@ class AudioBuffer {
   clear(): void {
     this.chunks = [];
     this.currentDuration = 0;
+    this.hasReceivedAudio = false;
+  }
+
+  setDiscardInitialSilence(discard: boolean): void {
+    this.discardSilence = discard;
+    if (discard) {
+      this.hasReceivedAudio = false;
+    }
   }
 
   getDuration(): number {

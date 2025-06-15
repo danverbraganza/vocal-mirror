@@ -26,11 +26,9 @@ interface SilenceInfo {
 class AudioAnalyzer {
   private volumeThreshold: number;
   private silenceDuration: number;
-  private readonly analysisInterval: number;
   private detectionStrategy: DetectionStrategy;
   private customDetector: ((analysis: Analysis, audioData: Float32Array, sampleRate: number) => boolean) | null;
   
-  private lastVolumeTime = Date.now();
   private isCurrentlySilent = false;
   private silenceStartTime = 0;
   
@@ -40,7 +38,6 @@ class AudioAnalyzer {
   constructor(options: AnalyzerOptions = {}) {
     this.volumeThreshold = options.volumeThreshold || -50;
     this.silenceDuration = options.silenceDuration || 2000;
-    this.analysisInterval = options.analysisInterval || 100;
     this.detectionStrategy = options.detectionStrategy || 'volume';
     this.customDetector = options.customDetector || null;
     
@@ -75,7 +72,6 @@ class AudioAnalyzer {
 
   reset(): void {
     this.isCurrentlySilent = false;
-    this.lastVolumeTime = Date.now();
     this.silenceStartTime = 0;
   }
 
@@ -107,7 +103,6 @@ class AudioAnalyzer {
     } else {
       if (this.isCurrentlySilent) {
         this.isCurrentlySilent = false;
-        this.lastVolumeTime = now;
       }
     }
   }
