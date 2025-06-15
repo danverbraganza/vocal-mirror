@@ -22,10 +22,10 @@ class AudioPlayback {
   private audioContext: AudioContext | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
   private audioBuffer: AudioBuffer | null = null;
-  
+
   private isPlaying = false;
   private startTime = 0;
-  
+
   private readonly onPlaybackStart: (info: PlaybackInfo) => void;
   private readonly onPlaybackEnd: (info: PlaybackInfo) => void;
   private readonly onPlaybackError: (error: PlaybackError) => void;
@@ -68,20 +68,20 @@ class AudioPlayback {
       this.currentSource = this.audioContext!.createBufferSource();
       this.currentSource.buffer = this.audioBuffer;
       this.currentSource.connect(this.audioContext!.destination);
-      
+
       this.currentSource.onended = () => {
         if (this.isPlaying) this.handlePlaybackEnd();
       };
-      
+
       this.currentSource.start(0);
       this.isPlaying = true;
       this.startTime = this.audioContext!.currentTime;
-      
+
       this.onPlaybackStart({
         duration: this.audioBuffer.duration,
         timestamp: Date.now()
       });
-      
+
       return true;
     } catch (error) {
       this.onPlaybackError({
@@ -105,7 +105,10 @@ class AudioPlayback {
         // Source might already be stopped
       }
     }
-    this.cleanupPlayback();
+
+    this.isPlaying = false;
+    this.currentSource = null;
+    this.startTime = 0;
   }
 
   isCurrentlyPlaying(): boolean {
@@ -113,8 +116,8 @@ class AudioPlayback {
   }
 
   getPlaybackPosition(): number {
-    return this.isPlaying && this.audioContext 
-      ? this.audioContext.currentTime - this.startTime 
+    return this.isPlaying && this.audioContext
+      ? this.audioContext.currentTime - this.startTime
       : 0;
   }
 
@@ -123,11 +126,16 @@ class AudioPlayback {
   }
 
   cleanup(): void {
-    this.cleanupPlayback();
-  }
-
-  dispose(): void {
-    this.cleanupPlayback();
+    if (this.currentSource && this.isPlaying) {
+      try {
+        this.currentSource.stop();
+      } catch {
+        // Source might already be stopped
+      }
+    }
+    this.isPlaying = false;
+    this.currentSource = null;
+    this.startTime = 0;
     this.audioContext?.close();
     this.audioContext = null;
   }
@@ -144,7 +152,9 @@ class AudioPlayback {
 
   private handlePlaybackEnd(): void {
     const duration = this.getPlaybackPosition();
-    this.cleanupPlayback();
+    this.isPlaying = false;
+    this.currentSource = null;
+    this.startTime = 0;
     this.onPlaybackEnd({
       duration,
       timestamp: Date.now(),
@@ -152,11 +162,5 @@ class AudioPlayback {
     });
   }
 
-  private cleanupPlayback(): void {
-    this.isPlaying = false;
-    this.currentSource = null;
-    this.startTime = 0;
-  }
-}
 
 export default AudioPlayback;

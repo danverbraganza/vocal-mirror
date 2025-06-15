@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror';
 
+
 type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'recording_and_playing' | 'paused' | 'error';
 
 function App() {
@@ -45,19 +46,19 @@ function App() {
         setError(null);
         await vocalMirrorRef.current.startRecording();
         break;
-      
+
       case 'recording':
       case 'playing':
         // Pause the vocal mirror to break the auto-cycle
         vocalMirrorRef.current.pause();
         break;
-      
+
       case 'paused':
         // Resume the auto-cycle by starting recording
         vocalMirrorRef.current.resume();
         await vocalMirrorRef.current.startRecording();
         break;
-      
+
       case 'error':
         setError(null);
         setState('idle');
@@ -67,12 +68,13 @@ function App() {
 
   const buttonText = {
     idle: 'Ready',
-    ready: 'Ready', 
+    ready: 'Ready',
     recording: 'Listening',
     playing: 'Playing',
     recording_and_playing: 'Recording',
     paused: 'Ready',
-    error: 'Try Again'
+    error: 'Try Again',
+    loading: 'Loading...'
   }[state] || 'Loading...';
 
   const statusText = {
@@ -82,18 +84,19 @@ function App() {
     playing: 'Playing back your recording',
     recording_and_playing: 'Recording while playing - speak to interrupt',
     paused: 'Click to resume',
-    error: 'Error occurred - click to retry'
+    error: 'Error occurred - click to retry',
+    loading: 'Initializing...'
   }[state] || state;
 
-  const formatVolume = (volumeDb: number | null) => 
+  const formatVolume = (volumeDb: number | null) =>
     volumeDb === null || volumeDb === -Infinity ? 'Silent' : `${volumeDb.toFixed(1)} dB`;
 
   return (
     <div id="wrapper">
       <h1>Vocal Mirror</h1>
       <div className="copy">
-        Vocal Mirror is a simple web tool to enable vocal practice with rapid feedback. 
-        Vocal Mirror will listen for you to speak or sing, and then replay that to you 
+        Vocal Mirror is a simple web tool to enable vocal practice with rapid feedback.
+        Vocal Mirror will listen for you to speak or sing, and then replay that to you
         as soon as you stop.
       </div>
       <div id="display">
@@ -102,8 +105,8 @@ function App() {
             Error: {error}
           </div>
         )}
-        
-        <button 
+
+        <button
           className={`button center status-button ${state === 'recording' || state === 'recording_and_playing' ? 'recording' : ''} ${state === 'playing' || state === 'recording_and_playing' ? 'playing' : ''}`}
           onClick={handleButtonClick}
           disabled={false}
@@ -113,13 +116,13 @@ function App() {
             <div className="status-text">{statusText}</div>
           </div>
         </button>
-        
+
         {(state === 'recording' || state === 'recording_and_playing') && volume !== null && (
           <div className="subHeading">
             Volume: <span className="cost">{formatVolume(volume)}</span>
           </div>
         )}
-        
+
         {state === 'recording' && (
           <div className="subHeading">
             <small>
@@ -128,7 +131,7 @@ function App() {
             </small>
           </div>
         )}
-        
+
         {state === 'playing' && (
           <div className="subHeading">
             <small>
