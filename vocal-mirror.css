@@ -303,3 +303,109 @@ input[type=number]::-webkit-outer-spin-button {
         0 0 0 3px rgba(0, 212, 255, 0.3);
     transform: scale(1.1);
 }
+
+/* Resources section styling */
+.resources-section {
+    margin-top: 48px;
+    padding: 24px;
+    background: rgba(31, 41, 55, 0.4);
+    border: 1px solid rgba(75, 85, 99, 0.2);
+    border-radius: 16px;
+    backdrop-filter: blur(8px);
+}
+
+.resources-section h2 {
+    margin: 0 0 16px 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: center;
+}
+
+.resources-section p {
+    margin: 0 0 24px 0;
+    color: #94a3b8;
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+.resources-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.resource-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: rgba(31, 41, 55, 0.6);
+    border: 1px solid rgba(75, 85, 99, 0.3);
+    border-radius: 8px;
+    padding: 18px;
+    transition: all 0.2s ease;
+}
+
+.resource-card:hover {
+    background: rgba(31, 41, 55, 0.8);
+    border-color: rgba(75, 85, 99, 0.5);
+}
+
+.resource-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    gap: 16px;
+}
+
+.resource-card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.3;
+    flex: 1;
+}
+
+.resource-author {
+    font-size: 0.9rem;
+    color: #00d4ff;
+    font-weight: 500;
+    text-align: right;
+    flex-shrink: 0;
+    min-width: 120px;
+}
+
+.resource-description {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+}
+
+/* Responsive card styling */
+@media (max-width: 768px) {
+    .resource-header {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    .resource-author {
+        text-align: left;
+        min-width: auto;
+    }
+    
+    .resource-card {
+        padding: 16px;
+    }
+    
+    .resource-card h3 {
+        font-size: 1rem;
+    }
+    
+    .resource-description {
+        font-size: 0.85rem;
+    }
+}
