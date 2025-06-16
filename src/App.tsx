@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror';
 
 
@@ -11,6 +11,7 @@ function App() {
   const [volume, setVolume] = useState<number | null>(null);
   const [bufferDuration, setBufferDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [silenceThreshold, setSilenceThreshold] = useState(-50);
   const vocalMirrorRef = useRef<VocalMirror | null>(null);
 
   useEffect(() => {
@@ -47,6 +48,17 @@ function App() {
       }
     };
   }, []);
+
+  // Handle threshold changes separately to avoid recreating VocalMirror
+  useEffect(() => {
+    if (vocalMirrorRef.current) {
+      vocalMirrorRef.current.updateSettings({ volumeThreshold: silenceThreshold });
+    }
+  }, [silenceThreshold]);
+
+  const handleSilenceThresholdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSilenceThreshold(Number(event.target.value));
+  };
 
   const handleButtonClick = async () => {
     console.log('App: Button clicked');
@@ -162,6 +174,21 @@ function App() {
             </small>
           </div>
         )}
+
+        <div className="silence-threshold-control">
+          <label htmlFor="silence-threshold" className="threshold-label">
+            Silence Level: {silenceThreshold} dB
+          </label>
+          <input
+            id="silence-threshold"
+            type="range"
+            min="-70"
+            max="-20"
+            value={silenceThreshold}
+            onChange={handleSilenceThresholdChange}
+            className="threshold-slider"
+          />
+        </div>
       </div>
     </div>
   );
