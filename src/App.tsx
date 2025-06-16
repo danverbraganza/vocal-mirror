@@ -1,6 +1,53 @@
 import React, { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror';
 
+// Volume meter component
+const VolumeMeter: React.FC<{ 
+  volume: number | null; 
+  isRecording: boolean; 
+}> = ({ volume, isRecording }) => {
+  // Calculate which segments should be lit based on volume
+  // Volume ranges from -Infinity to ~0 dB
+  // We'll map this to 6 segments
+  const getActiveSegments = (volumeDb: number | null): number => {
+    if (!volumeDb || volumeDb === -Infinity || !isRecording) return 0;
+    
+    // Map dB range to segments (typical speaking range is roughly -60 to -10 dB)
+    // Segment thresholds: -55, -45, -35, -25, -15, -5 dB
+    if (volumeDb >= -5) return 6;   // Very loud
+    if (volumeDb >= -15) return 5;  // Loud
+    if (volumeDb >= -25) return 4;  // Moderate-high
+    if (volumeDb >= -35) return 3;  // Moderate
+    if (volumeDb >= -45) return 2;  // Low-moderate
+    if (volumeDb >= -55) return 1;  // Low
+    return 0; // Very quiet/silent
+  };
+
+  const activeSegments = getActiveSegments(volume);
+
+  return (
+    <div className="volume-meter">
+      {[...Array(6)].map((_, index) => {
+        const segmentIndex = 5 - index; // Bottom to top (5, 4, 3, 2, 1, 0)
+        const isActive = segmentIndex < activeSegments;
+        
+        // Determine color: 0-1 green, 2-3 yellow, 4-5 red
+        let colorClass = '';
+        if (segmentIndex <= 1) colorClass = 'green';
+        else if (segmentIndex <= 3) colorClass = 'yellow';
+        else colorClass = 'red';
+        
+        return (
+          <div
+            key={index}
+            className={`volume-segment ${colorClass} ${isActive ? 'active' : 'dimmed'}`}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
 
 type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'recording_and_playing' | 'paused' | 'error';
 
@@ -146,9 +193,15 @@ function App() {
           onClick={handleButtonClick}
           disabled={false}
         >
-          <div className="button-content">
-            <div className="button-text">{buttonText}</div>
-            <div className="status-text">{statusText}</div>
+          <div className="button-content-with-meter">
+            <VolumeMeter 
+              volume={volume} 
+              isRecording={state === 'recording' || state === 'recording_and_playing'} 
+            />
+            <div className="button-content">
+              <div className="button-text">{buttonText}</div>
+              <div className="status-text">{statusText}</div>
+            </div>
           </div>
         </button>
 
