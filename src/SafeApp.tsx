@@ -1,12 +1,56 @@
 import { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror';
 
-type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'recording_and_playing' | 'paused' | 'error';
+/**
+ * AppState represents the current state of the Vocal Mirror application.
+ * 
+ * State Flow:
+ * Ready -> Listening -> Recording -> Playing -> Listening (cycle continues)
+ *                                 \-> Ready (user interrupts)
+ *    \-> Error (on failures) -> Ready (user retries)
+ */
+type AppState = 
+  /** 
+   * Ready: Initial state when user has not started working with the app.
+   * Call to Action: Click to begin listening for audio input.
+   */
+  | 'ready'
+  
+  /** 
+   * Listening: App is actively listening for audio input above the volume threshold.
+   * - If audio above threshold is detected -> transitions to Recording
+   * - If user clicks button -> transitions to Ready
+   * - Audio chunks below threshold are discarded
+   */
+  | 'listening'
+  
+  /** 
+   * Recording: App is recording audio to the 5-minute buffer.
+   * - Waits for silence longer than silenceDuration threshold -> transitions to Playing
+   * - If user interrupts by pressing button -> transitions to Ready (discards all audio)
+   * - Continues recording until buffer is full or silence detected
+   */
+  | 'recording' 
+  
+  /** 
+   * Playing: App is playing back recorded audio AND listening for interruption.
+   * - If user speaks loudly (above threshold) -> immediately stops playback, transitions to Listening
+   * - If user presses button -> transitions to Ready (discards all audio)
+   * - When playback completes naturally -> transitions to Listening
+   */
+  | 'playing'
+  
+  /** 
+   * Error: Something went wrong (microphone permissions, audio API failure, etc.).
+   * - User can click to retry and transition back to Ready
+   * - Provides graceful error recovery mechanism
+   */
+  | 'error';
 
 function SafeApp() {
   console.log('SafeApp: Rendering');
   
-  const [state, setState] = useState<AppState>('idle');
+  const [state, setState] = useState<AppState>('ready');
   const [volume, setVolume] = useState<number | null>(null);
   const [bufferDuration, setBufferDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -63,25 +107,21 @@ function SafeApp() {
 
     try {
       switch (state) {
-        case 'idle':
         case 'ready':
           setError(null);
           await vocalMirrorRef.current.startRecording();
           break;
 
+        case 'listening':
         case 'recording':
         case 'playing':
-          vocalMirrorRef.current.pause();
-          break;
-
-        case 'paused':
-          vocalMirrorRef.current.resume();
-          await vocalMirrorRef.current.startRecording();
+          // Stop the vocal mirror cycle and return to ready
+          vocalMirrorRef.current.stop();
           break;
 
         case 'error':
           setError(null);
-          setState('idle');
+          setState('ready');
           break;
       }
     } catch (err) {
@@ -91,22 +131,18 @@ function SafeApp() {
   };
 
   const buttonText = {
-    idle: 'Ready',
-    ready: 'Ready',
-    recording: 'Listening',
-    playing: 'Playing',
-    recording_and_playing: 'Recording',
-    paused: 'Ready',
+    ready: 'Start',
+    listening: 'Stop',
+    recording: 'Stop',
+    playing: 'Stop',
     error: 'Try Again',
   }[state] || 'Loading...';
 
   const statusText = {
-    idle: 'Click to initialize microphone',
-    ready: 'Click to start listening',
-    recording: `Listening... (${bufferDuration.toFixed(1)}s)`,
-    playing: 'Playing back your recording',
-    recording_and_playing: 'Recording while playing - speak to interrupt',
-    paused: 'Click to resume',
+    ready: 'Click to start listening for audio',
+    listening: `Listening for audio... (${bufferDuration.toFixed(1)}s)`,
+    recording: `Recording audio... (${bufferDuration.toFixed(1)}s)`,
+    playing: 'Playing back your recording - speak to interrupt',
     error: 'Error occurred - click to retry',
   }[state] || state;
 
@@ -142,7 +178,7 @@ function SafeApp() {
         )}
 
         <button
-          className={`button center status-button ${state === 'recording' || state === 'recording_and_playing' ? 'recording' : ''} ${state === 'playing' || state === 'recording_and_playing' ? 'playing' : ''}`}
+          className={`button center status-button ${state === 'listening' || state === 'recording' ? 'recording' : ''} ${state === 'playing' ? 'playing' : ''}`}
           onClick={handleButtonClick}
           disabled={false}
         >
@@ -152,9 +188,18 @@ function SafeApp() {
           </div>
         </button>
 
-        {(state === 'recording' || state === 'recording_and_playing') && volume !== null && (
+        {(state === 'listening' || state === 'recording') && volume !== null && (
           <div className="subHeading">
             Volume: <span className="cost">{formatVolume(volume)}</span>
+          </div>
+        )}
+
+        {state === 'listening' && (
+          <div className="subHeading">
+            <small>
+              Listening for audio above threshold. Speak to start recording.
+              Click to stop.
+            </small>
           </div>
         )}
 
@@ -170,7 +215,7 @@ function SafeApp() {
         {state === 'playing' && (
           <div className="subHeading">
             <small>
-              Playing back your recording. Click to stop the cycle.
+              Playing back your recording. Speak loudly to interrupt, or click to stop the cycle.
             </small>
           </div>
         )}

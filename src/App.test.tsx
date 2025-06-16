@@ -2,46 +2,48 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 
-// Mock the VocalMirror class
+// Mock the VocalMirror module
 jest.mock('./VocalMirror', () => {
-  return {
-    default: jest.fn().mockImplementation((options) => {
-      // Immediately call the onStateChange callback with initial state
-      setTimeout(() => {
-        options.onStateChange?.({
-          newState: 'idle',
-          oldState: 'idle',
-          timestamp: Date.now(),
-          stateInfo: {
-            state: 'idle',
-            isInitialized: false,
-            isPaused: false,
-            bufferDuration: 0,
-            bufferSamples: 0,
-            isRecording: false,
-            isPlaying: false,
-          },
-        });
-      }, 0);
+  return jest.fn((options) => {
+    // Immediately call the onStateChange callback with initial state
+    setTimeout(() => {
+      options.onStateChange?.({
+        newState: 'ready',
+        oldState: 'ready',
+        timestamp: Date.now(),
+        stateInfo: {
+          state: 'ready',
+          isInitialized: false,
+          isPaused: false,
+          bufferDuration: 0,
+          bufferSamples: 0,
+          isRecording: false,
+          isPlaying: false,
+        },
+      });
+    }, 0);
 
-      return {
-        cleanup: jest.fn(),
-        startRecording: jest.fn().mockResolvedValue(true),
-        pause: jest.fn(),
-        resume: jest.fn(),
-      };
-    }),
-  };
+    return {
+      cleanup: jest.fn(),
+      startRecording: jest.fn().mockResolvedValue(true),
+      stop: jest.fn(),
+      updateSettings: jest.fn(),
+    };
+  });
 });
 
 describe('App Component', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   test('renders without crashing', () => {
     render(<App />);
   });
 
   test('renders Vocal Mirror heading', () => {
     render(<App />);
-    const heading = screen.getByText(/Vocal Mirror/i);
+    const heading = screen.getByRole('heading', { name: /Vocal Mirror/i });
     expect(heading).toBeInTheDocument();
   });
 
@@ -66,7 +68,7 @@ describe('App Component', () => {
     
     await waitFor(() => {
       const button = screen.getByRole('button');
-      expect(button).toHaveTextContent('Ready');
+      expect(button).toHaveTextContent('Start');
     });
   });
 
@@ -74,7 +76,7 @@ describe('App Component', () => {
     render(<App />);
     
     await waitFor(() => {
-      const statusText = screen.getByText(/Click to initialize microphone/i);
+      const statusText = screen.getByText(/Click to start listening for audio/i);
       expect(statusText).toBeInTheDocument();
     });
   });
@@ -95,7 +97,7 @@ describe('App Component', () => {
   });
 
   test('VocalMirror is initialized on mount', () => {
-    const VocalMirror = require('./VocalMirror').default;
+    const VocalMirror = require('./VocalMirror');
     render(<App />);
     
     expect(VocalMirror).toHaveBeenCalledTimes(1);

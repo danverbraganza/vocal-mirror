@@ -56,6 +56,9 @@ describe('VocalMirror', () => {
   let mockOnStateChange: jest.Mock;
   let mockOnError: jest.Mock;
   let mockOnVolumeUpdate: jest.Mock;
+  let mockRecorder: any;
+  let mockPlayback: any;
+  let mockAnalyzer: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -63,11 +66,25 @@ describe('VocalMirror', () => {
     mockOnError = jest.fn();
     mockOnVolumeUpdate = jest.fn();
 
+    // Initialize mocks
+    const AudioRecorder = require('./AudioRecorder');
+    const AudioPlayback = require('./AudioPlayback');
+    const AudioAnalyzer = require('./AudioAnalyzer');
+    
+    mockRecorder = new AudioRecorder();
+    mockPlayback = new AudioPlayback();
+    mockAnalyzer = new AudioAnalyzer();
+
     vocalMirror = new VocalMirror({
       onStateChange: mockOnStateChange,
       onError: mockOnError,
       onVolumeUpdate: mockOnVolumeUpdate,
     });
+
+    // Ensure the mock instances are connected to the VocalMirror instance
+    (vocalMirror as any).recorder = mockRecorder;
+    (vocalMirror as any).playback = mockPlayback;
+    (vocalMirror as any).analyzer = mockAnalyzer;
   });
 
   afterEach(() => {
@@ -78,7 +95,7 @@ describe('VocalMirror', () => {
     test('should initialize with default options', () => {
       const vm = new VocalMirror();
       expect(vm).toBeDefined();
-      expect(vm.getState().state).toBe('idle');
+      expect(vm.getState().state).toBe('ready');
     });
 
     test('should initialize with custom options', () => {
@@ -96,7 +113,7 @@ describe('VocalMirror', () => {
       expect(mockOnStateChange).toHaveBeenCalledWith(
         expect.objectContaining({
           newState: 'ready',
-          oldState: 'idle',
+          oldState: 'ready',
         })
       );
     });
@@ -106,7 +123,7 @@ describe('VocalMirror', () => {
     test('should return correct initial state', () => {
       const state = vocalMirror.getState();
       expect(state).toEqual({
-        state: 'idle',
+        state: 'ready',
         isInitialized: false,
         isPaused: false,
         bufferDuration: 0,
@@ -177,7 +194,7 @@ describe('VocalMirror', () => {
       expect(result).toBe(true);
       expect(mockOnStateChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          newState: 'recording',
+          newState: 'listening',
         })
       );
     });
@@ -190,17 +207,8 @@ describe('VocalMirror', () => {
   });
 
   describe('playback interruption on sound detection', () => {
-    let mockPlayback: any;
-    let mockRecorder: any;
-
     beforeEach(async () => {
       await vocalMirror.initialize();
-      
-      // Get the mock instances
-      const AudioPlayback = require('./AudioPlayback');
-      const AudioRecorder = require('./AudioRecorder');
-      mockPlayback = new AudioPlayback();
-      mockRecorder = new AudioRecorder();
       
       // Mock the private components
       (vocalMirror as any).playback = mockPlayback;
@@ -212,10 +220,19 @@ describe('VocalMirror', () => {
       (vocalMirror as any).state = 'playing';
       mockPlayback.isCurrentlyPlaying.mockReturnValue(true);
 
-      // Call the private autoStartRecording method (simulating sound detection)
-      await (vocalMirror as any).autoStartRecording();
+      // Set up analyzer to return non-silent audio (above threshold)
+      mockAnalyzer.analyze.mockReturnValue({
+        volume: 0.8,
+        volumeDb: -10,
+        isSilent: false, // This indicates audio is above threshold
+        timestamp: Date.now(),
+      });
 
-      // Verify that playback was stopped
+      // Simulate audio data being received during playback (this triggers interruption)
+      const audioData = new Float32Array(1024);
+      (vocalMirror as any).handleAudioData(audioData, 44100);
+
+      // Verify that playback was stopped and new listening cycle started
       expect(mockPlayback.stop).toHaveBeenCalled();
       expect(mockRecorder.startRecording).toHaveBeenCalled();
     });
@@ -226,70 +243,51 @@ describe('VocalMirror', () => {
       mockPlayback.isCurrentlyPlaying.mockReturnValue(false);
 
       // Call the private autoStartRecording method
-      await (vocalMirror as any).autoStartRecording();
+      await (vocalMirror as any).autoStartListening();
 
       // Verify that playback was not stopped
       expect(mockPlayback.stop).not.toHaveBeenCalled();
       expect(mockRecorder.startRecording).toHaveBeenCalled();
     });
 
-    test('should handle sound detection during different states', async () => {
-      const testCases = [
-        { state: 'ready', shouldStopPlayback: false },
-        { state: 'playing', shouldStopPlayback: true },
-        { state: 'recording', shouldStopPlayback: false },
-        { state: 'paused', shouldStopPlayback: false },
-      ];
-
-      for (const testCase of testCases) {
-        jest.clearAllMocks();
-        (vocalMirror as any).state = testCase.state;
-        mockPlayback.isCurrentlyPlaying.mockReturnValue(testCase.state === 'playing');
-
-        await (vocalMirror as any).autoStartRecording();
-
-        if (testCase.shouldStopPlayback) {
-          expect(mockPlayback.stop).toHaveBeenCalled();
-        } else if (testCase.state !== 'paused') {
-          expect(mockPlayback.stop).not.toHaveBeenCalled();
-        }
-      }
+    test('should handle auto-start listening from ready state', async () => {
+      (vocalMirror as any).state = 'ready';
+      
+      await (vocalMirror as any).autoStartListening();
+      
+      expect(mockRecorder.startRecording).toHaveBeenCalled();
+      expect(mockOnStateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          newState: 'listening',
+        })
+      );
     });
 
-    test('should handle errors during auto-start recording', async () => {
+    test('should handle errors during auto-start listening', async () => {
       // Make recorder throw an error
       mockRecorder.startRecording.mockRejectedValue(new Error('Recording failed'));
       
       (vocalMirror as any).state = 'ready';
 
-      await (vocalMirror as any).autoStartRecording();
+      await (vocalMirror as any).autoStartListening();
 
       expect(mockOnError).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'auto-recording',
-          message: 'Failed to automatically start recording',
+          type: 'auto-listening',
+          message: 'Failed to automatically start listening',
         })
       );
     });
   });
 
-  describe('pause and resume', () => {
+  describe('stop functionality', () => {
     beforeEach(async () => {
       await vocalMirror.initialize();
     });
 
-    test('should pause successfully', () => {
-      vocalMirror.pause();
-      expect(mockOnStateChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          newState: 'paused',
-        })
-      );
-    });
-
-    test('should resume successfully', () => {
-      vocalMirror.pause();
-      vocalMirror.resume();
+    test('should stop successfully and return to ready', () => {
+      (vocalMirror as any).state = 'recording';
+      vocalMirror.stop();
       expect(mockOnStateChange).toHaveBeenCalledWith(
         expect.objectContaining({
           newState: 'ready',
@@ -297,15 +295,13 @@ describe('VocalMirror', () => {
       );
     });
 
-    test('should not start recording when paused', async () => {
-      vocalMirror.pause();
-      
-      // Try to auto-start recording while paused
-      await (vocalMirror as any).autoStartRecording();
-      
+    test('should stop playback when in playing state', () => {
+      (vocalMirror as any).state = 'playing';
+      vocalMirror.stop();
+      expect(mockPlayback.stop).toHaveBeenCalled();
       expect(mockOnStateChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          newState: 'paused',
+          newState: 'ready',
         })
       );
     });
@@ -315,7 +311,7 @@ describe('VocalMirror', () => {
     test('should cleanup all components', () => {
       vocalMirror.cleanup();
 
-      expect(vocalMirror.getState().state).toBe('idle');
+      expect(vocalMirror.getState().state).toBe('ready');
       expect(vocalMirror.getState().isInitialized).toBe(false);
     });
   });

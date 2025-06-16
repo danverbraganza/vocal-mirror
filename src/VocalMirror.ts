@@ -3,7 +3,51 @@ import AudioAnalyzer from './AudioAnalyzer';
 import AudioPlayback from './AudioPlayback';
 import AudioBuffer from './AudioBuffer';
 
-type VocalMirrorState = 'idle' | 'ready' | 'recording' | 'playing' | 'recording_and_playing' | 'paused' | 'error';
+/**
+ * VocalMirrorState represents the current state of the Vocal Mirror core logic.
+ * 
+ * State Flow:
+ * Ready -> Listening -> Recording -> Playing -> Listening (cycle continues)
+ *                                 \-> Ready (user interrupts)
+ *    \-> Error (on failures) -> Ready (user retries)
+ */
+type VocalMirrorState = 
+  /** 
+   * Ready: Initial state when user has not started working with the app.
+   * Call to Action: Click to begin listening for audio input.
+   */
+  | 'ready'
+  
+  /** 
+   * Listening: App is actively listening for audio input above the volume threshold.
+   * - If audio above threshold is detected -> transitions to Recording
+   * - If user clicks button -> transitions to Ready
+   * - Audio chunks below threshold are discarded
+   */
+  | 'listening'
+  
+  /** 
+   * Recording: App is recording audio to the 5-minute buffer.
+   * - Waits for silence longer than silenceDuration threshold -> transitions to Playing
+   * - If user interrupts by pressing button -> transitions to Ready (discards all audio)
+   * - Continues recording until buffer is full or silence detected
+   */
+  | 'recording' 
+  
+  /** 
+   * Playing: App is playing back recorded audio AND listening for interruption.
+   * - If user speaks loudly (above threshold) -> immediately stops playback, transitions to Listening
+   * - If user presses button -> transitions to Ready (discards all audio)
+   * - When playback completes naturally -> transitions to Listening
+   */
+  | 'playing'
+  
+  /** 
+   * Error: Something went wrong (microphone permissions, audio API failure, etc.).
+   * - User can click to retry and transition back to Ready
+   * - Provides graceful error recovery mechanism
+   */
+  | 'error';
 
 interface StateChangeInfo {
   oldState: VocalMirrorState;
@@ -46,11 +90,10 @@ class VocalMirror {
   private analyzer: AudioAnalyzer | null = null;
   private playback: AudioPlayback | null = null;
   private buffer: AudioBuffer | null = null;
-  private concurrentBuffer: AudioBuffer | null = null;
+  // Removed concurrent buffer - using single buffer with interruption handling
   
-  private state: VocalMirrorState = 'idle';
+  private state: VocalMirrorState = 'ready';
   private isInitialized = false;
-  private isPaused = false;
   
   private readonly onStateChange: (info: StateChangeInfo) => void;
   private readonly onError: (error: ErrorInfo) => void;
@@ -70,7 +113,6 @@ class VocalMirror {
 
   private initializeComponents(): void {
     this.buffer = new AudioBuffer(this.maxRecordingDuration);
-    this.concurrentBuffer = new AudioBuffer(this.maxRecordingDuration);
     
     this.analyzer = new AudioAnalyzer({
       volumeThreshold: this.volumeThreshold,
@@ -121,34 +163,40 @@ class VocalMirror {
     }
   }
 
+  /**
+   * Starts the vocal mirror cycle. This initiates the Ready -> Listening transition.
+   * In Listening state, we monitor for audio above threshold before starting to record.
+   * Public method for UI to call.
+   */
   async startRecording(): Promise<boolean> {
     if (!this.isInitialized && !(await this.initialize())) return false;
     
     try {
       const started = await this.recorder!.startRecording();
       if (started) {
-        if (this.state === 'playing') {
-          // Start concurrent recording during playback
-          this.concurrentBuffer?.clear();
-          this.concurrentBuffer?.setDiscardInitialSilence(true);
-          this.analyzer?.reset();
-          this.setState('recording_and_playing');
-        } else {
-          // Normal recording
-          this.buffer?.clear();
-          this.buffer?.setDiscardInitialSilence(true);
-          this.analyzer?.reset();
-          this.setState('recording');
-        }
+        this.buffer?.clear();
+        this.buffer?.setDiscardInitialSilence(true);
+        this.analyzer?.reset();
+        this.setState('listening');
       }
       return started;
     } catch (error) {
       this.handleError({
-        type: 'recording',
-        message: 'Failed to start recording',
+        type: 'listening',
+        message: 'Failed to start listening',
         error: error as Error
       });
       return false;
+    }
+  }
+
+  /**
+   * Transitions from Listening to Recording when audio above threshold is detected.
+   * Internal method for state transitions.
+   */
+  private transitionToRecording(): void {
+    if (this.state === 'listening') {
+      this.setState('recording');
     }
   }
 
@@ -164,28 +212,27 @@ class VocalMirror {
     else this.doTriggerPlayback();
   }
 
+  /**
+   * Stops all audio operations and returns to Ready state.
+   * This is called when user interrupts the cycle.
+   */
   stop(): void {
-    if (this.state === 'recording') this.recorder?.stopRecording();
-    else if (this.state === 'playing') this.playback?.stop();
+    if (this.state === 'listening' || this.state === 'recording') {
+      this.recorder?.stopRecording();
+    } else if (this.state === 'playing') {
+      this.playback?.stop();
+    }
+    this.buffer?.clear();
     this.setState('ready');
   }
 
-  pause(): void {
-    this.isPaused = true;
-    this.stop();
-    this.setState('paused');
-  }
-
-  resume(): void {
-    this.isPaused = false;
-    this.setState('ready');
-  }
+  // Removed pause/resume functionality - user can only reset to ready or let cycle continue
 
   getState(): StateInfo {
     return {
       state: this.state,
       isInitialized: this.isInitialized,
-      isPaused: this.isPaused,
+      isPaused: false, // Always false now - we removed pause functionality
       bufferDuration: this.buffer?.getDuration() || 0,
       bufferSamples: this.buffer?.getSampleCount() || 0,
       isRecording: this.recorder?.getState().isRecording || false,
@@ -205,69 +252,69 @@ class VocalMirror {
     this.recorder?.cleanup();
     this.playback?.cleanup();
     this.buffer?.clear();
-    this.concurrentBuffer?.clear();
     this.isInitialized = false;
-    this.setState('idle');
+    this.setState('ready');
   }
 
-  private async autoStartRecording(): Promise<void> {
-    if (this.isPaused) {
-      this.setState('paused');
-      return;
-    }
-
+  /**
+   * Automatically transitions from Playing back to Listening to continue the cycle.
+   */
+  private async autoStartListening(): Promise<void> {
     try {
-      // Stop playback if currently playing (sound detected during playback)
-      if (this.state === 'playing' && this.playback?.isCurrentlyPlaying()) {
-        this.playback.stop();
-      }
-
       this.buffer?.clear();
       this.buffer?.setDiscardInitialSilence(true);
       this.analyzer?.reset();
       const started = await this.recorder!.startRecording();
-      this.setState(started ? 'recording' : 'ready');
+      this.setState(started ? 'listening' : 'ready');
     } catch (error) {
       this.handleError({
-        type: 'auto-recording',
-        message: 'Failed to automatically start recording',
+        type: 'auto-listening',
+        message: 'Failed to automatically start listening',
         error: error as Error
       });
     }
   }
 
   private handleAudioData(audioData: Float32Array, sampleRate: number): void {
-    if (this.state !== 'recording' && this.state !== 'recording_and_playing') return;
+    if (this.state !== 'listening' && this.state !== 'recording' && this.state !== 'playing') return;
     
-    // Analyze audio to determine if it's silent
+    // Analyze audio to determine if it's silent and above threshold
     const analysis = this.analyzer?.analyze(audioData, sampleRate);
     const isSilent = analysis?.isSilent || false;
+    const isAboveThreshold = !isSilent; // Analyzer returns false for isSilent when above threshold
     
-    if (this.state === 'recording_and_playing') {
-      // Recording during playback - use concurrent buffer
-      this.concurrentBuffer?.addData(audioData, sampleRate, isSilent);
-      
-      if ((this.concurrentBuffer?.getDuration() || 0) >= this.maxRecordingDuration) {
-        // Switch to new recording
-        this.handleConcurrentRecordingComplete();
+    if (this.state === 'listening') {
+      // In listening state, wait for audio above threshold to start recording
+      if (isAboveThreshold) {
+        this.transitionToRecording();
+        // Add this first chunk to the buffer
+        this.buffer?.addData(audioData, sampleRate, isSilent);
       }
-    } else {
-      // Normal recording
+      // Discard chunks below threshold while listening
+    } else if (this.state === 'recording') {
+      // Normal recording - add all data
       this.buffer?.addData(audioData, sampleRate, isSilent);
       
       if ((this.buffer?.getDuration() || 0) >= this.maxRecordingDuration) {
         this.doTriggerPlayback();
+      }
+    } else if (this.state === 'playing') {
+      // During playback, listen for interruption
+      if (isAboveThreshold) {
+        // User spoke - interrupt playback and start new listening cycle
+        this.playback?.stop();
+        this.autoStartListening();
       }
     }
   }
 
   private handleSilenceDetected(): void {
     if (this.state === 'recording') {
+      // Silence detected during recording - trigger playback
       this.doTriggerPlayback();
-    } else if (this.state === 'recording_and_playing') {
-      // User stopped speaking during playback - trigger new playback
-      this.handleConcurrentRecordingComplete();
     }
+    // In listening state, silence is expected - we're waiting for audio
+    // In playing state, silence from user is fine - we're playing back
   }
 
   private handleVolumeChange(analysis: any): void {
@@ -312,21 +359,13 @@ class VocalMirror {
   }
 
   private handlePlaybackStart(): void {
-    // Start concurrent recording when playback begins
-    this.startRecording();
+    // Playback started - we're now in playing state and listening for interruption
+    // Audio data handling will manage interruption detection
   }
 
   private handlePlaybackEnd(): void {
-    if (this.state === 'recording_and_playing') {
-      // Continue with concurrent recording if it has content
-      if ((this.concurrentBuffer?.getDuration() || 0) > 0) {
-        this.handleConcurrentRecordingComplete();
-      } else {
-        this.setState('recording');
-      }
-    } else {
-      this.autoStartRecording();
-    }
+    // Playback completed naturally - start listening for next cycle
+    this.autoStartListening();
   }
 
   private handlePlaybackError(error: ErrorInfo): void {
@@ -337,24 +376,7 @@ class VocalMirror {
     // Handle if needed
   }
 
-  private async handleConcurrentRecordingComplete(): Promise<void> {
-    if ((this.concurrentBuffer?.getDuration() || 0) === 0) return;
-    
-    // Stop current playback
-    this.playback?.stop();
-    
-    // Move concurrent buffer data to main buffer
-    const audioData = this.concurrentBuffer!.getAllData();
-    this.buffer?.clear();
-    this.buffer?.addData(audioData, this.recorder!.getSampleRate());
-    this.concurrentBuffer?.clear();
-    
-    // Start playback of new recording
-    this.setState('playing');
-    const sampleRate = this.recorder!.getSampleRate();
-    const started = await this.playback!.playAudio(audioData, sampleRate);
-    if (!started) this.setState('ready');
-  }
+  // Removed handleConcurrentRecordingComplete - no longer using concurrent buffer approach
 }
 
 export default VocalMirror;
