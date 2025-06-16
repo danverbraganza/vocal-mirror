@@ -136,8 +136,9 @@ function App() {
   console.log('App: About to return JSX, state:', state);
 
   return (
-    <div id="wrapper">
-      <h1>Vocal Mirror</h1>
+    <>
+      <div id="wrapper">
+        <h1>Vocal Mirror</h1>
       <div className="copy">
         Vocal Mirror is a simple web tool to enable vocal practice with rapid feedback.
         Vocal Mirror will listen for you to speak or sing, and then replay that to you
@@ -219,7 +220,7 @@ function App() {
       </div>
       <div className="resources-section">
         <h2>Vocal Training Resources</h2>
-        <p>Enhance your vocal skills with these recommended books and resources:</p>
+        <p>Resources for vocal coaching:</p>
 
         <div className="resources-grid">
           <a href="https://rogerlove.com/set-your-voice-free3/" target="_blank" rel="noopener noreferrer" className="resource-card">
@@ -273,10 +274,11 @@ function App() {
           </a>
         </div>
       </div>
+      </div>
       <footer className="attribution-footer">
         Made with <a href="https://imbue.com?utm_source=vocal-mirror&utm_medium=web-app&utm_campaign=attribution&utm_content=danverbraganza.com" target="_blank" rel="noopener noreferrer">Sculptor by Imbue</a>
       </footer>
-    </div>
+    </>
   );
 }
 
