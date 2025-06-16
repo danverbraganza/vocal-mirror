@@ -34,7 +34,7 @@ type AppState =
   
   /** 
    * Playing: App is playing back recorded audio AND listening for interruption.
-   * - If user speaks loudly (above threshold) -> immediately stops playback, transitions to Listening
+   * - If user speaks (any audible speech) -> immediately stops playback, transitions to Listening
    * - If user presses button -> transitions to Ready (discards all audio)
    * - When playback completes naturally -> transitions to Listening
    */
@@ -215,7 +215,7 @@ function SafeApp() {
         {state === 'playing' && (
           <div className="subHeading">
             <small>
-              Playing back your recording. Speak loudly to interrupt, or click to stop the cycle.
+              Playing back your recording. Speak to interrupt, or click to stop the cycle.
             </small>
           </div>
         )}

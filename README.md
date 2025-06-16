@@ -1,48 +1,105 @@
 # Vocal Mirror
-## A simple web tool for vocal practice.
+## A simple web tool for vocal practice with instant feedback.
 
-Created by Danver Braganza
+Created by Danver Braganza  
 Coded with Sculptor by Imbue
 
 Vocal Mirror is a simple tool intended for vocal practice and giving rapid
 feedback on speech. It is a Single Page Web Application which requests
-permissions to record the user and provides an automatic feedback loop for
-vocal practice.
+microphone permissions and provides an automatic feedback loop for
+vocal practice with intelligent interruption capabilities.
 
 ## How It Works
 
-Vocal Mirror operates in three main modes:
+Vocal Mirror operates in a seamless four-state cycle:
 
-1. **Recording Mode**: Continuously records audio from the user to a buffer (maximum 5 minutes)
-2. **Playback Mode**: Plays back the recorded audio to the user  
-3. **Paused Mode**: Stops the automatic cycle, allowing manual control
+1. **Ready**: Initial state - click "Start" to begin
+2. **Listening**: Actively monitoring for speech above the threshold
+3. **Recording**: Capturing audio to buffer while monitoring for silence  
+4. **Playing**: Playing back recorded audio while simultaneously listening for interruption
 
-## Automatic Workflow
+## Intelligent State Flow
 
-1. **Start Recording**: Click "Start Recording" to begin the vocal practice session
-2. **Automatic Playback**: Recording automatically stops and plays back when:
-   - You stop speaking for 0.5 seconds (quick response for immediate feedback)
-   - The 5-minute maximum recording time is reached
-3. **Automatic Recording**: After playback completes, recording automatically starts again
-4. **Continuous Cycle**: This creates a seamless record → playback → record cycle for uninterrupted practice
+### Ready → Listening → Recording → Playing → Listening (cycle continues)
+
+1. **Start Session**: Click "Start" to begin listening for audio input
+2. **Voice Detection**: App detects speech above the configurable threshold and begins recording
+3. **Automatic Playback**: Recording stops and playback begins when you pause for the configured silence duration
+4. **Smart Interruption**: During playback, speak at normal volume to immediately interrupt and start a new recording
+5. **Continuous Cycle**: Creates a seamless practice loop with instant feedback
+
+## Key Features
+
+### 🎯 **Instant Interruption**
+- Speak during playback to immediately interrupt and start recording new audio
+- Uses the same sensitivity threshold for starting and interrupting (fully configurable)
+- No need to wait for playback to finish - get immediate feedback
+
+### ⚙️ **Fully Configurable**
+- **Silence Level**: Adjust volume threshold (-70 to -20 dB) to match your environment
+- **Silence Duration**: Set how long to wait (0.1 to 2.0 seconds) before triggering playback
+- Real-time adjustment while practicing
+
+### 📊 **Visual Feedback**
+- Real-time volume meter during listening and recording
+- Clear state indicators showing current app behavior
+- Visual threshold guidance for optimal settings
 
 ## Controls
 
-- **Start Recording**: Begin the vocal practice session
-- **Pause**: Stop the automatic cycle at any time (during recording or playback)
-- **Resume**: Restart the automatic cycle from the paused state
+- **Start**: Begin the vocal practice session (Ready → Listening)
+- **Stop**: Exit the practice cycle at any time (Any State → Ready)
+- **Silence Level Slider**: Adjust volume sensitivity for your environment
+- **Silence Duration Slider**: Control how quickly playback triggers
 
-## Features
+## Use Cases
 
-- **Fast Feedback**: Only 0.5 seconds of silence needed to trigger playback (reduced from 2 seconds for snappier response)
-- **Automatic Workflow**: No need to manually start/stop - just speak and listen
-- **Volume Monitoring**: Real-time volume level display during recording
-- **Error Handling**: Graceful handling of microphone permissions and audio errors
-- **Browser Compatible**: Works in modern web browsers with Web Audio API support
+### 🎤 **Vocal Practice**
+- Practice pronunciation, intonation, and vocal exercises
+- Immediate feedback for accent reduction and speech therapy
+- Safe space to experiment with vocal techniques
+
+### 🎭 **Performance Preparation**  
+- Rehearse speeches, presentations, or performance pieces
+- Perfect timing and delivery with real-time feedback
+- Practice interruption recovery and natural flow
+
+### 🗣️ **Speech Training**
+- Language learning with pronunciation feedback
+- Public speaking practice with natural pause detection
+- Vocal therapy and rehabilitation exercises
 
 ## Technical Details
 
-- Uses Web Audio API for high-quality audio recording and playback
-- Real-time silence detection with configurable volume threshold (-50 dB default)
-- Circular buffer for efficient memory usage during long recording sessions
-- Responsive design that works on desktop and mobile devices
+### Architecture
+- **Frontend**: React with TypeScript for type-safe component architecture
+- **Audio Engine**: Web Audio API for high-quality recording and playback
+- **Real-time Processing**: Continuous audio analysis with configurable silence detection
+- **State Management**: Clean state machine with predictable transitions
+
+### Audio Processing
+- **Simultaneous Operations**: Records and plays audio concurrently for interruption detection
+- **Configurable Thresholds**: User-adjustable volume sensitivity (-70 to -20 dB range)
+- **Efficient Buffering**: 5-minute circular buffer with intelligent memory management
+- **Cross-browser Support**: Compatible with modern browsers supporting Web Audio API
+
+### Performance
+- **Low Latency**: Optimized for real-time audio processing and feedback
+- **Memory Efficient**: Smart buffer management prevents memory leaks during long sessions
+- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
+
+## Browser Compatibility
+
+Requires a modern browser with Web Audio API support:
+- Chrome 66+ (recommended for best performance)
+- Firefox 60+
+- Safari 14+
+- Edge 79+
+
+## Getting Started
+
+1. Open the application in a compatible browser
+2. Grant microphone permissions when prompted
+3. Adjust silence level and duration settings to match your environment
+4. Click "Start" to begin your vocal practice session
+5. Speak naturally - the app will automatically handle recording and playback

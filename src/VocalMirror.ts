@@ -36,7 +36,7 @@ type VocalMirrorState =
   
   /** 
    * Playing: App is playing back recorded audio AND listening for interruption.
-   * - If user speaks loudly (above threshold) -> immediately stops playback, transitions to Listening
+   * - If user speaks (any audible speech) -> immediately stops playback, transitions to Listening
    * - If user presses button -> transitions to Ready (discards all audio)
    * - When playback completes naturally -> transitions to Listening
    */
@@ -258,6 +258,12 @@ class VocalMirror {
 
   /**
    * Automatically transitions from Playing back to Listening to continue the cycle.
+   * 
+   * This method is called in two scenarios:
+   * 1. After playback completes naturally (user didn't interrupt)
+   * 2. After user interrupts playback by speaking (immediate transition)
+   * 
+   * The recorder is already running, so we just need to clear the buffer and reset state.
    */
   private async autoStartListening(): Promise<void> {
     try {
@@ -275,36 +281,55 @@ class VocalMirror {
     }
   }
 
+  /**
+   * Handles incoming audio data from the microphone across all active states.
+   * This is the core method that enables the app's real-time audio processing:
+   * 
+   * - LISTENING: Waits for user speech to start recording
+   * - RECORDING: Captures audio to buffer while monitoring for silence
+   * - PLAYING: Continues monitoring for user speech to interrupt playback
+   * 
+   * The same volume threshold is used consistently across all states for predictable behavior.
+   */
   private handleAudioData(audioData: Float32Array, sampleRate: number): void {
     if (this.state !== 'listening' && this.state !== 'recording' && this.state !== 'playing') return;
     
     // Analyze audio to determine if it's silent and above threshold
+    // The analyzer uses the user-configurable silence threshold consistently
     const analysis = this.analyzer?.analyze(audioData, sampleRate);
     const isSilent = analysis?.isSilent || false;
     const isAboveThreshold = !isSilent; // Analyzer returns false for isSilent when above threshold
     
     if (this.state === 'listening') {
-      // In listening state, wait for audio above threshold to start recording
+      // LISTENING STATE: Wait for user speech above threshold to begin recording
+      // This prevents false triggers from background noise while being responsive to speech
       if (isAboveThreshold) {
         this.transitionToRecording();
-        // Add this first chunk to the buffer
+        // Add this first chunk to the buffer since it triggered recording
         this.buffer?.addData(audioData, sampleRate, isSilent);
       }
-      // Discard chunks below threshold while listening
+      // Discard audio chunks below threshold while listening (background noise, etc.)
+      
     } else if (this.state === 'recording') {
-      // Normal recording - add all data
+      // RECORDING STATE: Capture all audio data while monitoring for silence
+      // We record everything (speech + silence) to get natural playback timing
       this.buffer?.addData(audioData, sampleRate, isSilent);
       
+      // Prevent infinite recording - trigger playback if buffer fills up
       if ((this.buffer?.getDuration() || 0) >= this.maxRecordingDuration) {
         this.doTriggerPlayback();
       }
+      
     } else if (this.state === 'playing') {
-      // During playback, listen for interruption
+      // PLAYING STATE: Simultaneously play recorded audio AND listen for interruption
+      // The recorder keeps running during playback to detect user speech
+      // Uses the same threshold as listening for consistent user experience
       if (isAboveThreshold) {
-        // User spoke - interrupt playback and start new listening cycle
+        // User spoke during playback - immediately interrupt and start listening for new recording
         this.playback?.stop();
         this.autoStartListening();
       }
+      // Note: We don't add audio to buffer during playback - only monitor for interruption
     }
   }
 
@@ -321,10 +346,17 @@ class VocalMirror {
     this.onVolumeUpdate(analysis);
   }
 
+  /**
+   * Triggers playback of recorded audio while maintaining microphone input.
+   * 
+   * Key behavior: The recorder stays active during playback to enable interruption detection.
+   * This allows the user to speak during playback to immediately interrupt and start a new cycle.
+   */
   private async doTriggerPlayback(): Promise<void> {
     if ((this.buffer?.getDuration() || 0) === 0) return;
     
-    this.recorder?.stopRecording();
+    // CRITICAL: DON'T stop recording - we need continuous microphone input during playback
+    // This enables real-time interruption detection when user speaks during playback
     const audioData = this.buffer!.getAllData();
     const sampleRate = this.recorder!.getSampleRate();
     

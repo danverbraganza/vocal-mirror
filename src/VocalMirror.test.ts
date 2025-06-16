@@ -237,6 +237,49 @@ describe('VocalMirror', () => {
       expect(mockRecorder.startRecording).toHaveBeenCalled();
     });
 
+    test('should interrupt playback with speech above threshold (same sensitivity as listening)', async () => {
+      // Set up the state as if we're playing
+      (vocalMirror as any).state = 'playing';
+      mockPlayback.isCurrentlyPlaying.mockReturnValue(true);
+
+      // Set up analyzer to return speech above the normal threshold (same as used for listening)
+      mockAnalyzer.analyze.mockReturnValue({
+        volume: 0.6,
+        volumeDb: -45, // Speech above default -50dB threshold
+        isSilent: false, // Not silent - above threshold for both listening and interruption
+        timestamp: Date.now(),
+      });
+
+      // Simulate audio data being received during playback
+      const audioData = new Float32Array(1024);
+      (vocalMirror as any).handleAudioData(audioData, 44100);
+
+      // Verify that playback was interrupted by speech above threshold
+      expect(mockPlayback.stop).toHaveBeenCalled();
+      expect(mockRecorder.startRecording).toHaveBeenCalled();
+    });
+
+    test('should not interrupt playback with speech below threshold', async () => {
+      // Set up the state as if we're playing
+      (vocalMirror as any).state = 'playing';
+      mockPlayback.isCurrentlyPlaying.mockReturnValue(true);
+
+      // Set up analyzer to return speech below the threshold
+      mockAnalyzer.analyze.mockReturnValue({
+        volume: 0.1,
+        volumeDb: -60, // Speech below default -50dB threshold
+        isSilent: true, // Silent - below threshold, should not interrupt
+        timestamp: Date.now(),
+      });
+
+      // Simulate audio data being received during playback
+      const audioData = new Float32Array(1024);
+      (vocalMirror as any).handleAudioData(audioData, 44100);
+
+      // Verify that playback was NOT interrupted by quiet speech
+      expect(mockPlayback.stop).not.toHaveBeenCalled();
+    });
+
     test('should not stop playback when not currently playing', async () => {
       // Set up the state as if we're not playing
       (vocalMirror as any).state = 'ready';
