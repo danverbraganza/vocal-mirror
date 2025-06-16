@@ -217,6 +217,11 @@ class VocalMirror {
     }
 
     try {
+      // Stop playback if currently playing (sound detected during playback)
+      if (this.state === 'playing' && this.playback?.isCurrentlyPlaying()) {
+        this.playback.stop();
+      }
+
       this.buffer?.clear();
       this.buffer?.setDiscardInitialSilence(true);
       this.analyzer?.reset();
