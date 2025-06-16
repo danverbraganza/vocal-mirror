@@ -225,17 +225,24 @@ input[type=number]::-webkit-outer-spin-button {
     max-width: 400px;
 }
 
-/* Silence threshold control styling */
-.silence-threshold-control {
+/* Silence controls styling */
+.silence-controls {
     margin-top: 32px;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.silence-threshold-control,
+.silence-duration-control {
     padding: 16px;
     background: rgba(31, 41, 55, 0.6);
     border: 1px solid rgba(75, 85, 99, 0.3);
     border-radius: 12px;
     backdrop-filter: blur(8px);
-    max-width: 320px;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 .threshold-label {
@@ -324,6 +331,7 @@ input[type=number]::-webkit-outer-spin-button {
 .attribution-footer a:hover {
     color: #0099cc;
     text-decoration: underline;
+}
 
 /* Resources section styling */
 .resources-section {

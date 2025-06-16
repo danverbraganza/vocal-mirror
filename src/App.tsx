@@ -12,6 +12,7 @@ function App() {
   const [bufferDuration, setBufferDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [silenceThreshold, setSilenceThreshold] = useState(-50);
+  const [silenceDuration, setSilenceDuration] = useState(0.5);
   const vocalMirrorRef = useRef<VocalMirror | null>(null);
 
   useEffect(() => {
@@ -20,6 +21,7 @@ function App() {
     try {
       // Initialize VocalMirror when component mounts
       const vocalMirror = new VocalMirror({
+        silenceDuration: silenceDuration * 1000, // Convert seconds to milliseconds
         onStateChange: (stateInfo) => {
           setState(stateInfo.newState);
           setBufferDuration(stateInfo.stateInfo.bufferDuration);
@@ -47,17 +49,24 @@ function App() {
         vocalMirrorRef.current.cleanup();
       }
     };
-  }, []);
+  }, [silenceDuration]); // Include silenceDuration in dependencies so VocalMirror gets recreated if it changes before initialization
 
-  // Handle threshold changes separately to avoid recreating VocalMirror
+  // Handle threshold and duration changes separately to avoid recreating VocalMirror
   useEffect(() => {
     if (vocalMirrorRef.current) {
-      vocalMirrorRef.current.updateSettings({ volumeThreshold: silenceThreshold });
+      vocalMirrorRef.current.updateSettings({ 
+        volumeThreshold: silenceThreshold,
+        silenceDuration: silenceDuration * 1000 // Convert seconds to milliseconds
+      });
     }
-  }, [silenceThreshold]);
+  }, [silenceThreshold, silenceDuration]);
 
   const handleSilenceThresholdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSilenceThreshold(Number(event.target.value));
+  };
+
+  const handleSilenceDurationChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSilenceDuration(Number(event.target.value));
   };
 
   const handleButtonClick = async () => {
@@ -161,7 +170,7 @@ function App() {
         {state === 'recording' && (
           <div className="subHeading">
             <small>
-              Recording will automatically play back when you stop speaking (0.5s silence).
+              Recording will automatically play back when you stop speaking ({silenceDuration}s silence).
               Click to stop the cycle.
             </small>
           </div>
@@ -175,19 +184,37 @@ function App() {
           </div>
         )}
 
-        <div className="silence-threshold-control">
-          <label htmlFor="silence-threshold" className="threshold-label">
-            Silence Level: {silenceThreshold} dB
-          </label>
-          <input
-            id="silence-threshold"
-            type="range"
-            min="-70"
-            max="-20"
-            value={silenceThreshold}
-            onChange={handleSilenceThresholdChange}
-            className="threshold-slider"
-          />
+        <div className="silence-controls">
+          <div className="silence-threshold-control">
+            <label htmlFor="silence-threshold" className="threshold-label">
+              Silence Level: {silenceThreshold} dB
+            </label>
+            <input
+              id="silence-threshold"
+              type="range"
+              min="-70"
+              max="-20"
+              value={silenceThreshold}
+              onChange={handleSilenceThresholdChange}
+              className="threshold-slider"
+            />
+          </div>
+          
+          <div className="silence-duration-control">
+            <label htmlFor="silence-duration" className="threshold-label">
+              Silence Duration: {silenceDuration}s
+            </label>
+            <input
+              id="silence-duration"
+              type="range"
+              min="0.1"
+              max="2.0"
+              step="0.1"
+              value={silenceDuration}
+              onChange={handleSilenceDurationChange}
+              className="threshold-slider"
+            />
+          </div>
         </div>
       </div>
       <div className="resources-section">

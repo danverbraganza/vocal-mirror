@@ -124,6 +124,49 @@ describe('VocalMirror', () => {
     });
   });
 
+  describe('settings management', () => {
+    test('should create VocalMirror with default silence duration', () => {
+      const defaultVocalMirror = new VocalMirror();
+      // VocalMirror should be created successfully with defaults
+      expect(defaultVocalMirror).toBeDefined();
+      expect(defaultVocalMirror.getState).toBeDefined();
+    });
+
+    test('should create VocalMirror with custom silence duration', () => {
+      const customVocalMirror = new VocalMirror({ silenceDuration: 1500 });
+      // VocalMirror should be created successfully with custom settings
+      expect(customVocalMirror).toBeDefined();
+      expect(customVocalMirror.getState).toBeDefined();
+    });
+
+    test('should update silence duration setting', () => {
+      const mockAnalyzer = require('./AudioAnalyzer');
+      const analyzerInstance = mockAnalyzer.mock.results[0].value;
+      
+      vocalMirror.updateSettings({ silenceDuration: 2000 });
+      
+      expect(analyzerInstance.updateSettings).toHaveBeenCalledWith({
+        volumeThreshold: undefined,
+        silenceDuration: 2000
+      });
+    });
+
+    test('should update both volume threshold and silence duration', () => {
+      const mockAnalyzer = require('./AudioAnalyzer');
+      const analyzerInstance = mockAnalyzer.mock.results[0].value;
+      
+      vocalMirror.updateSettings({ 
+        volumeThreshold: -40,
+        silenceDuration: 1000 
+      });
+      
+      expect(analyzerInstance.updateSettings).toHaveBeenCalledWith({
+        volumeThreshold: -40,
+        silenceDuration: 1000
+      });
+    });
+  });
+
   describe('recording functionality', () => {
     beforeEach(async () => {
       await vocalMirror.initialize();
