@@ -6,7 +6,7 @@ type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'recording_and_play
 
 function App() {
   console.log('App: Component rendering');
-  
+
   const [state, setState] = useState<AppState>('idle');
   const [volume, setVolume] = useState<number | null>(null);
   const [bufferDuration, setBufferDuration] = useState(0);
@@ -16,7 +16,7 @@ function App() {
 
   useEffect(() => {
     console.log('App: useEffect running');
-    
+
     try {
       // Initialize VocalMirror when component mounts
       const vocalMirror = new VocalMirror({
@@ -62,7 +62,7 @@ function App() {
 
   const handleButtonClick = async () => {
     console.log('App: Button clicked');
-    
+
     if (!vocalMirrorRef.current) {
       console.log('App: No vocalMirrorRef');
       return;
@@ -188,6 +188,62 @@ function App() {
             onChange={handleSilenceThresholdChange}
             className="threshold-slider"
           />
+        </div>
+      </div>
+      <div className="resources-section">
+        <h2>Vocal Training Resources</h2>
+        <p>Enhance your vocal skills with these recommended books and resources:</p>
+
+        <div className="resources-grid">
+          <a href="https://rogerlove.com/set-your-voice-free3/" target="_blank" rel="noopener noreferrer" className="resource-card">
+            <div className="resource-header">
+              <h3>Set Your Voice Free</h3>
+              <span className="resource-author">Roger Love & Donna Frazier</span>
+            </div>
+            <p className="resource-description">
+              Singing & speaking voice improvement with revolutionary "middle voice" technique
+            </p>
+          </a>
+
+          <a href="https://www.amazon.com/Freeing-Natural-Voice-Practice-Language/dp/0896762505" target="_blank" rel="noopener noreferrer" className="resource-card">
+            <div className="resource-header">
+              <h3>Freeing the Natural Voice</h3>
+              <span className="resource-author">Kristin Linklater</span>
+            </div>
+            <p className="resource-description">
+              Liberating your natural voice through exercises developed over 30 years
+            </p>
+          </a>
+
+          <a href="https://www.chicagoreviewpress.com/the-voice-book-products-9781641603300.php" target="_blank" rel="noopener noreferrer" className="resource-card">
+            <div className="resource-header">
+              <h3>The Voice Book</h3>
+              <span className="resource-author">Kate DeVore & Starr Cookman</span>
+            </div>
+            <p className="resource-description">
+              Voice care, protection, and improvement with scientific methods
+            </p>
+          </a>
+
+          <a href="https://www.amazon.com/Your-Voice-How-Use-Confidence/dp/0863698263" target="_blank" rel="noopener noreferrer" className="resource-card">
+            <div className="resource-header">
+              <h3>Your Voice and How to Use It</h3>
+              <span className="resource-author">Cicely Berry</span>
+            </div>
+            <p className="resource-description">
+              Practical exercises for relaxation, breathing, and vocal flexibility
+            </p>
+          </a>
+
+          <a href="https://uad-lab.slhs.phhp.ufl.edu/2021/03/26/vocal-function-exercises/" target="_blank" rel="noopener noreferrer" className="resource-card">
+            <div className="resource-header">
+              <h3>Vocal Function Exercises</h3>
+              <span className="resource-author">Joseph Stemple</span>
+            </div>
+            <p className="resource-description">
+              Evidence-based therapeutic exercises for vocal rehabilitation
+            </p>
+          </a>
         </div>
       </div>
       <footer className="attribution-footer">
