@@ -190,6 +190,9 @@ function App() {
           />
         </div>
       </div>
+      <footer className="attribution-footer">
+        Made with <a href="https://imbue.com?utm_source=vocal-mirror&utm_medium=web-app&utm_campaign=attribution&utm_content=danverbraganza.com" target="_blank" rel="noopener noreferrer">Sculptor by Imbue</a>
+      </footer>
     </div>
   );
 }
