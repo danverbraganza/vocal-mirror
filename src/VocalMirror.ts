@@ -203,7 +203,7 @@ class VocalMirror {
 
   cleanup(): void {
     this.recorder?.cleanup();
-    this.playback?.dispose();
+    this.playback?.cleanup();
     this.buffer?.clear();
     this.concurrentBuffer?.clear();
     this.isInitialized = false;

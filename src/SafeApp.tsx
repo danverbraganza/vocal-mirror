@@ -1,31 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror';
 
-
 type AppState = 'idle' | 'ready' | 'recording' | 'playing' | 'recording_and_playing' | 'paused' | 'error';
 
-function App() {
-  console.log('App: Component rendering');
+function SafeApp() {
+  console.log('SafeApp: Rendering');
   
   const [state, setState] = useState<AppState>('idle');
   const [volume, setVolume] = useState<number | null>(null);
   const [bufferDuration, setBufferDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
   const vocalMirrorRef = useRef<VocalMirror | null>(null);
 
   useEffect(() => {
-    console.log('App: useEffect running');
+    console.log('SafeApp: useEffect running');
     
     try {
       // Initialize VocalMirror when component mounts
       const vocalMirror = new VocalMirror({
         onStateChange: (stateInfo) => {
+          console.log('SafeApp: State change:', stateInfo);
           setState(stateInfo.newState);
           setBufferDuration(stateInfo.stateInfo.bufferDuration);
         },
         onError: (errorInfo) => {
+          console.error('SafeApp: VocalMirror error:', errorInfo);
           setError(errorInfo.message);
-          console.error('VocalMirror error:', errorInfo);
         },
         onVolumeUpdate: (analysis) => {
           setVolume(analysis.volumeDb);
@@ -33,26 +34,30 @@ function App() {
       });
 
       vocalMirrorRef.current = vocalMirror;
-      console.log('App: VocalMirror created successfully');
+      console.log('SafeApp: VocalMirror initialized');
     } catch (err) {
-      console.error('App: Error creating VocalMirror:', err);
-      setError(err instanceof Error ? err.message : 'Failed to initialize VocalMirror');
+      console.error('SafeApp: Error initializing VocalMirror:', err);
+      setInitError(err instanceof Error ? err.message : String(err));
     }
 
     // Cleanup on unmount
     return () => {
-      console.log('App: Cleanup running');
-      if (vocalMirrorRef.current) {
-        vocalMirrorRef.current.cleanup();
+      console.log('SafeApp: Cleanup');
+      try {
+        if (vocalMirrorRef.current) {
+          vocalMirrorRef.current.cleanup();
+        }
+      } catch (err) {
+        console.error('SafeApp: Cleanup error:', err);
       }
     };
   }, []);
 
   const handleButtonClick = async () => {
-    console.log('App: Button clicked');
+    console.log('SafeApp: Button clicked, state:', state);
     
     if (!vocalMirrorRef.current) {
-      console.log('App: No vocalMirrorRef');
+      console.error('SafeApp: No vocalMirrorRef');
       return;
     }
 
@@ -66,12 +71,10 @@ function App() {
 
         case 'recording':
         case 'playing':
-          // Pause the vocal mirror to break the auto-cycle
           vocalMirrorRef.current.pause();
           break;
 
         case 'paused':
-          // Resume the auto-cycle by starting recording
           vocalMirrorRef.current.resume();
           await vocalMirrorRef.current.startRecording();
           break;
@@ -82,8 +85,8 @@ function App() {
           break;
       }
     } catch (err) {
-      console.error('App: Error in button click:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('SafeApp: Button click error:', err);
+      setError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -95,7 +98,6 @@ function App() {
     recording_and_playing: 'Recording',
     paused: 'Ready',
     error: 'Try Again',
-    loading: 'Loading...'
   }[state] || 'Loading...';
 
   const statusText = {
@@ -106,13 +108,23 @@ function App() {
     recording_and_playing: 'Recording while playing - speak to interrupt',
     paused: 'Click to resume',
     error: 'Error occurred - click to retry',
-    loading: 'Initializing...'
   }[state] || state;
 
   const formatVolume = (volumeDb: number | null) =>
     volumeDb === null || volumeDb === -Infinity ? 'Silent' : `${volumeDb.toFixed(1)} dB`;
 
-  console.log('App: About to return JSX, state:', state);
+  // If there's an initialization error, show it
+  if (initError) {
+    return (
+      <div style={{ padding: '20px', color: 'red', backgroundColor: 'white' }}>
+        <h1>Initialization Error</h1>
+        <p>{initError}</p>
+        <pre>{new Error().stack}</pre>
+      </div>
+    );
+  }
+
+  console.log('SafeApp: Returning JSX');
 
   return (
     <div id="wrapper">
@@ -167,4 +179,4 @@ function App() {
   );
 }
 
-export default App;
+export default SafeApp;
