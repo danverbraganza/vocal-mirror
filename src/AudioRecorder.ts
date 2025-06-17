@@ -31,13 +31,13 @@ class AudioRecorder {
   private sourceNode: MediaStreamAudioSourceNode | null = null;
   private analyserNode: AnalyserNode | null = null;
   private processorNode: ScriptProcessorNode | null = null;
-  
+
   private readonly bufferSize: number;
   private readonly fftSize: number;
-  
+
   private isRecording = false;
   private isInitialized = false;
-  
+
   private readonly onAudioData: (data: Float32Array, sampleRate: number) => void;
   private readonly onError: (error: ErrorInfo) => void;
   private readonly onStateChange: (change: StateChange) => void;
@@ -54,9 +54,9 @@ class AudioRecorder {
     try {
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
           sampleRate: 44100
         }
       });
@@ -137,12 +137,12 @@ class AudioRecorder {
 
   private setupAudioNodes(): void {
     const ctx = this.audioContext!;
-    
+
     this.sourceNode = ctx.createMediaStreamSource(this.mediaStream!);
     this.analyserNode = ctx.createAnalyser();
     this.analyserNode.fftSize = this.fftSize;
     this.analyserNode.smoothingTimeConstant = 0.8;
-    
+
     this.processorNode = ctx.createScriptProcessor(this.bufferSize, 1, 1);
     this.processorNode.onaudioprocess = (event) => {
       if (this.isRecording) {
@@ -150,7 +150,7 @@ class AudioRecorder {
         this.onAudioData(audioData, this.getSampleRate());
       }
     };
-    
+
     this.sourceNode.connect(this.analyserNode);
     this.analyserNode.connect(this.processorNode);
     this.processorNode.connect(ctx.destination);
