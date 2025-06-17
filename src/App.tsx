@@ -177,9 +177,12 @@ function App() {
       <div id="wrapper">
         <h1>Vocal Mirror</h1>
       <div className="copy">
-        Vocal Mirror is a simple web tool to enable vocal practice with rapid feedback.
-        Vocal Mirror will listen for you to speak or sing, and then replay that to you
-        as soon as you stop.
+        Vocal Mirror is a tool for rapid hands-free vocal practice and feedback.<br/>
+
+		When active, Vocal Mirror will listen for you to speak or sing, and then replay that to you
+        as soon as silence is detected. It's like a variable-length echo. <br/> <br/>
+
+		Vocal Mirror was dreamed up by <a href="https://danverbraganza.com">Danver Braganza</a> and coded with <a href="https://imbue.com?utm_source=vocal-mirror&utm_medium=web-app&utm_campaign=attribution&utm_content=danverbraganza.com" target="_blank" rel="noopener noreferrer">Sculptor by Imbue</a>.
       </div>
       <div id="display">
         {error && (
