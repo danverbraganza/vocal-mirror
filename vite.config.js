@@ -10,6 +10,15 @@ export default defineConfig({
     port: 3000
   },
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+	rollupOptions: {
+	  input: {
+		"vocal-mirror": 'index.html',
+	  },
+	  output: {
+     	  "entryFileNames": 'assets/[name].js',
+		  "assetFileNames": 'assets/[name].[ext]',
+	  }
+	}
   }
 });
