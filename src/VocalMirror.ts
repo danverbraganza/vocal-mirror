@@ -2,75 +2,9 @@ import AudioRecorder from './AudioRecorder';
 import AudioAnalyzer from './AudioAnalyzer';
 import AudioPlayback from './AudioPlayback';
 import AudioBuffer from './AudioBuffer';
+import { VocalMirrorState, StateChangeInfo, StateInfo, ErrorInfo } from './types';
+import { RECORDING_CONFIG, ERROR_TYPES, ERROR_MESSAGES } from './config';
 
-/**
- * VocalMirrorState represents the current state of the Vocal Mirror core logic.
- * 
- * State Flow:
- * Ready -> Listening -> Recording -> Playing -> Listening (cycle continues)
- *                                 \-> Ready (user interrupts)
- *    \-> Error (on failures) -> Ready (user retries)
- */
-type VocalMirrorState = 
-  /** 
-   * Ready: Initial state when user has not started working with the app.
-   * Call to Action: Click to begin listening for audio input.
-   */
-  | 'ready'
-  
-  /** 
-   * Listening: App is actively listening for audio input above the volume threshold.
-   * - If audio above threshold is detected -> transitions to Recording
-   * - If user clicks button -> transitions to Ready
-   * - Audio chunks below threshold are discarded
-   */
-  | 'listening'
-  
-  /** 
-   * Recording: App is recording audio to the 5-minute buffer.
-   * - Waits for silence longer than silenceDuration threshold -> transitions to Playing
-   * - If user interrupts by pressing button -> transitions to Ready (discards all audio)
-   * - Continues recording until buffer is full or silence detected
-   */
-  | 'recording' 
-  
-  /** 
-   * Playing: App is playing back recorded audio AND listening for interruption.
-   * - If user speaks (any audible speech) -> immediately stops playback, transitions to Listening
-   * - If user presses button -> transitions to Ready (discards all audio)
-   * - When playback completes naturally -> transitions to Listening
-   */
-  | 'playing'
-  
-  /** 
-   * Error: Something went wrong (microphone permissions, audio API failure, etc.).
-   * - User can click to retry and transition back to Ready
-   * - Provides graceful error recovery mechanism
-   */
-  | 'error';
-
-interface StateChangeInfo {
-  oldState: VocalMirrorState;
-  newState: VocalMirrorState;
-  timestamp: number;
-  stateInfo: StateInfo;
-}
-
-interface StateInfo {
-  state: VocalMirrorState;
-  isInitialized: boolean;
-  isPaused: boolean;
-  bufferDuration: number;
-  bufferSamples: number;
-  isRecording: boolean;
-  isPlaying: boolean;
-}
-
-interface ErrorInfo {
-  type: string;
-  message: string;
-  error?: Error;
-}
 
 interface VocalMirrorOptions {
   maxRecordingDuration?: number;
@@ -100,9 +34,9 @@ class VocalMirror {
   private readonly onVolumeUpdate: (analysis: any) => void;
 
   constructor(options: VocalMirrorOptions = {}) {
-    this.maxRecordingDuration = options.maxRecordingDuration || 300;
-    this.volumeThreshold = options.volumeThreshold || -50;
-    this.silenceDuration = options.silenceDuration || 500;
+    this.maxRecordingDuration = options.maxRecordingDuration || RECORDING_CONFIG.MAX_RECORDING_DURATION;
+    this.volumeThreshold = options.volumeThreshold || RECORDING_CONFIG.DEFAULT_VOLUME_THRESHOLD;
+    this.silenceDuration = options.silenceDuration || RECORDING_CONFIG.DEFAULT_SILENCE_DURATION;
     
     this.onStateChange = options.onStateChange || (() => {});
     this.onError = options.onError || (() => {});
@@ -138,7 +72,7 @@ class VocalMirror {
   async initialize(): Promise<boolean> {
     try {
       if (!AudioRecorder.isSupported() || !AudioPlayback.isSupported()) {
-        throw new Error('Audio recording/playback not supported');
+        throw new Error(ERROR_MESSAGES.AUDIO_NOT_SUPPORTED);
       }
       
       const [recorderOk, playbackOk] = await Promise.all([
@@ -147,7 +81,7 @@ class VocalMirror {
       ]);
       
       if (!recorderOk || !playbackOk) {
-        throw new Error('Failed to initialize audio components');
+        throw new Error(ERROR_MESSAGES.INITIALIZATION);
       }
       
       this.isInitialized = true;
@@ -155,9 +89,10 @@ class VocalMirror {
       return true;
     } catch (error) {
       this.handleError({
-        type: 'initialization',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        error: error as Error
+        type: ERROR_TYPES.INITIALIZATION,
+        message: error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN,
+        error: error as Error,
+        timestamp: Date.now()
       });
       return false;
     }
@@ -182,9 +117,10 @@ class VocalMirror {
       return started;
     } catch (error) {
       this.handleError({
-        type: 'listening',
-        message: 'Failed to start listening',
-        error: error as Error
+        type: ERROR_TYPES.LISTENING,
+        message: ERROR_MESSAGES.RECORDING_FAILED,
+        error: error as Error,
+        timestamp: Date.now()
       });
       return false;
     }
@@ -274,9 +210,10 @@ class VocalMirror {
       this.setState(started ? 'listening' : 'ready');
     } catch (error) {
       this.handleError({
-        type: 'auto-listening',
-        message: 'Failed to automatically start listening',
-        error: error as Error
+        type: ERROR_TYPES.AUTO_LISTENING,
+        message: ERROR_MESSAGES.AUTO_LISTENING_FAILED,
+        error: error as Error,
+        timestamp: Date.now()
       });
     }
   }

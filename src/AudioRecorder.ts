@@ -1,28 +1,12 @@
+import { ErrorInfo, StateChange, RecorderState } from './types';
+import { AUDIO_CONFIG, MEDIA_CONSTRAINTS, ERROR_TYPES, ERROR_MESSAGES } from './config';
+
 interface AudioRecorderOptions {
   bufferSize?: number;
   fftSize?: number;
   onAudioData?: (data: Float32Array, sampleRate: number) => void;
   onError?: (error: ErrorInfo) => void;
   onStateChange?: (change: StateChange) => void;
-}
-
-interface ErrorInfo {
-  type: string;
-  message: string;
-  error?: Error;
-}
-
-interface StateChange {
-  state: string;
-  timestamp: number;
-  details: RecorderState;
-}
-
-interface RecorderState {
-  isRecording: boolean;
-  isInitialized: boolean;
-  sampleRate: number;
-  contextState: AudioContextState;
 }
 
 class AudioRecorder {
@@ -43,8 +27,8 @@ class AudioRecorder {
   private readonly onStateChange: (change: StateChange) => void;
 
   constructor(options: AudioRecorderOptions = {}) {
-    this.bufferSize = options.bufferSize || 4096;
-    this.fftSize = options.fftSize || 2048;
+    this.bufferSize = options.bufferSize || AUDIO_CONFIG.BUFFER_SIZE;
+    this.fftSize = options.fftSize || AUDIO_CONFIG.FFT_SIZE;
     this.onAudioData = options.onAudioData || (() => {});
     this.onError = options.onError || (() => {});
     this.onStateChange = options.onStateChange || (() => {});
@@ -52,17 +36,10 @@ class AudioRecorder {
 
   async initialize(): Promise<boolean> {
     try {
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
-        }
-      });
+      this.mediaStream = await navigator.mediaDevices.getUserMedia(MEDIA_CONSTRAINTS);
 
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 44100
+        sampleRate: AUDIO_CONFIG.SAMPLE_RATE
       });
 
       this.setupAudioNodes();
@@ -71,9 +48,10 @@ class AudioRecorder {
       return true;
     } catch (error) {
       this.onError({
-        type: 'initialization',
-        message: 'Failed to initialize audio recording',
-        error: error as Error
+        type: ERROR_TYPES.INITIALIZATION,
+        message: ERROR_MESSAGES.INITIALIZATION,
+        error: error as Error,
+        timestamp: Date.now()
       });
       return false;
     }
@@ -92,9 +70,10 @@ class AudioRecorder {
       return true;
     } catch (error) {
       this.onError({
-        type: 'recording',
-        message: 'Failed to start recording',
-        error: error as Error
+        type: ERROR_TYPES.RECORDING,
+        message: ERROR_MESSAGES.RECORDING_FAILED,
+        error: error as Error,
+        timestamp: Date.now()
       });
       return false;
     }
@@ -118,7 +97,7 @@ class AudioRecorder {
   }
 
   getSampleRate(): number {
-    return this.audioContext?.sampleRate || 44100;
+    return this.audioContext?.sampleRate || AUDIO_CONFIG.SAMPLE_RATE;
   }
 
   getState(): RecorderState {
@@ -141,7 +120,7 @@ class AudioRecorder {
     this.sourceNode = ctx.createMediaStreamSource(this.mediaStream!);
     this.analyserNode = ctx.createAnalyser();
     this.analyserNode.fftSize = this.fftSize;
-    this.analyserNode.smoothingTimeConstant = 0.8;
+    this.analyserNode.smoothingTimeConstant = AUDIO_CONFIG.SMOOTHING_TIME_CONSTANT;
 
     this.processorNode = ctx.createScriptProcessor(this.bufferSize, 1, 1);
     this.processorNode.onaudioprocess = (event) => {

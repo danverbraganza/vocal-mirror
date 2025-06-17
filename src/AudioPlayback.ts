@@ -1,21 +1,11 @@
+import { ErrorInfo, PlaybackInfo } from './types';
+import { AUDIO_CONFIG, ERROR_TYPES, ERROR_MESSAGES } from './config';
+
 interface PlaybackOptions {
   onPlaybackStart?: (info: PlaybackInfo) => void;
   onPlaybackEnd?: (info: PlaybackInfo) => void;
-  onPlaybackError?: (error: PlaybackError) => void;
+  onPlaybackError?: (error: ErrorInfo) => void;
   onPlaybackInterrupted?: (info: PlaybackInfo) => void;
-}
-
-interface PlaybackInfo {
-  duration?: number;
-  timestamp: number;
-  playedDuration?: number;
-  completed?: boolean;
-}
-
-interface PlaybackError {
-  type: string;
-  message: string;
-  error?: Error;
 }
 
 class AudioPlayback {
@@ -28,7 +18,7 @@ class AudioPlayback {
 
   private readonly onPlaybackStart: (info: PlaybackInfo) => void;
   private readonly onPlaybackEnd: (info: PlaybackInfo) => void;
-  private readonly onPlaybackError: (error: PlaybackError) => void;
+  private readonly onPlaybackError: (error: ErrorInfo) => void;
   private readonly onPlaybackInterrupted: (info: PlaybackInfo) => void;
 
   constructor(options: PlaybackOptions = {}) {
@@ -41,20 +31,21 @@ class AudioPlayback {
   async initialize(): Promise<boolean> {
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 44100
+        sampleRate: AUDIO_CONFIG.SAMPLE_RATE
       });
       return true;
     } catch (error) {
       this.onPlaybackError({
-        type: 'initialization',
-        message: 'Failed to initialize audio playback',
-        error: error as Error
+        type: ERROR_TYPES.INITIALIZATION,
+        message: ERROR_MESSAGES.INITIALIZATION,
+        error: error as Error,
+        timestamp: Date.now()
       });
       return false;
     }
   }
 
-  async playAudio(audioData: Float32Array, sampleRate = 44100): Promise<boolean> {
+  async playAudio(audioData: Float32Array, sampleRate = AUDIO_CONFIG.SAMPLE_RATE): Promise<boolean> {
     if (!this.audioContext && !(await this.initialize())) return false;
 
     try {
@@ -85,9 +76,10 @@ class AudioPlayback {
       return true;
     } catch (error) {
       this.onPlaybackError({
-        type: 'playback',
-        message: 'Failed to play audio',
-        error: error as Error
+        type: ERROR_TYPES.PLAYBACK,
+        message: ERROR_MESSAGES.PLAYBACK_FAILED,
+        error: error as Error,
+        timestamp: Date.now()
       });
       return false;
     }

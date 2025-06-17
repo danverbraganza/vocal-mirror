@@ -1,4 +1,5 @@
-type DetectionStrategy = 'volume' | 'custom';
+import { DetectionStrategy, Analysis, SilenceInfo } from './types';
+import { RECORDING_CONFIG } from './config';
 
 interface AnalyzerOptions {
   volumeThreshold?: number;
@@ -8,19 +9,6 @@ interface AnalyzerOptions {
   customDetector?: (analysis: Analysis, audioData: Float32Array, sampleRate: number) => boolean;
   onSilenceDetected?: (info: SilenceInfo) => void;
   onVolumeChange?: (analysis: Analysis) => void;
-}
-
-interface Analysis {
-  volume: number;
-  volumeDb: number;
-  isSilent: boolean;
-  timestamp: number;
-}
-
-interface SilenceInfo {
-  duration: number;
-  timestamp: number;
-  analysis: Analysis;
 }
 
 class AudioAnalyzer {
@@ -36,8 +24,8 @@ class AudioAnalyzer {
   private readonly onVolumeChange: (analysis: Analysis) => void;
 
   constructor(options: AnalyzerOptions = {}) {
-    this.volumeThreshold = options.volumeThreshold || -50;
-    this.silenceDuration = options.silenceDuration || 2000;
+    this.volumeThreshold = options.volumeThreshold || RECORDING_CONFIG.DEFAULT_VOLUME_THRESHOLD;
+    this.silenceDuration = options.silenceDuration || RECORDING_CONFIG.DEFAULT_SILENCE_DURATION;
     this.detectionStrategy = options.detectionStrategy || 'volume';
     this.customDetector = options.customDetector || null;
     

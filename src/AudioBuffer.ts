@@ -1,8 +1,5 @@
-interface AudioChunk {
-  data: Float32Array;
-  duration: number;
-  timestamp: number;
-}
+import { AudioChunk } from './types';
+import { RECORDING_CONFIG } from './config';
 
 class AudioBuffer {
   private readonly maxDurationSeconds: number;
@@ -12,7 +9,7 @@ class AudioBuffer {
   private discardSilence = false;
   private hasReceivedAudio = false;
 
-  constructor(maxDurationSeconds = 300) {
+  constructor(maxDurationSeconds = RECORDING_CONFIG.MAX_RECORDING_DURATION) {
     this.maxDurationSeconds = maxDurationSeconds;
   }
 

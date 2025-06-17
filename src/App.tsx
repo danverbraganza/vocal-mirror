@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import VocalMirror from './VocalMirror';
+import { VocalMirrorState } from './types';
+import { UI_CONFIG, RECORDING_CONFIG } from './config';
 
 // Volume meter component
 const VolumeMeter: React.FC<{ 
@@ -8,18 +10,17 @@ const VolumeMeter: React.FC<{
 }> = ({ volume, isRecording }) => {
   // Calculate which segments should be lit based on volume
   // Volume ranges from -Infinity to ~0 dB
-  // We'll map this to 6 segments
+  // We'll map this to segments using configuration
   const getActiveSegments = (volumeDb: number | null): number => {
     if (!volumeDb || volumeDb === -Infinity || !isRecording) return 0;
     
-    // Map dB range to segments (typical speaking range is roughly -60 to -10 dB)
-    // Segment thresholds: -55, -45, -35, -25, -15, -5 dB
-    if (volumeDb >= -5) return 6;   // Very loud
-    if (volumeDb >= -15) return 5;  // Loud
-    if (volumeDb >= -25) return 4;  // Moderate-high
-    if (volumeDb >= -35) return 3;  // Moderate
-    if (volumeDb >= -45) return 2;  // Low-moderate
-    if (volumeDb >= -55) return 1;  // Low
+    // Use configured thresholds for volume meter segments
+    const thresholds = UI_CONFIG.VOLUME_METER.SEGMENT_THRESHOLDS;
+    for (let i = thresholds.length - 1; i >= 0; i--) {
+      if (volumeDb >= thresholds[i]) {
+        return i + 1;
+      }
+    }
     return 0; // Very quiet/silent
   };
 
@@ -27,14 +28,14 @@ const VolumeMeter: React.FC<{
 
   return (
     <div className="volume-meter">
-      {[...Array(6)].map((_, index) => {
-        const segmentIndex = 5 - index; // Bottom to top (5, 4, 3, 2, 1, 0)
+      {[...Array(UI_CONFIG.VOLUME_METER.SEGMENT_COUNT)].map((_, index) => {
+        const segmentIndex = UI_CONFIG.VOLUME_METER.SEGMENT_COUNT - 1 - index; // Bottom to top
         const isActive = segmentIndex < activeSegments;
         
-        // Determine color: 0-1 green, 2-3 yellow, 4-5 red
+        // Determine color using configuration
         let colorClass = '';
-        if (segmentIndex <= 1) colorClass = 'green';
-        else if (segmentIndex <= 3) colorClass = 'yellow';
+        if (segmentIndex <= UI_CONFIG.VOLUME_METER.COLOR_THRESHOLDS.GREEN_MAX) colorClass = 'green';
+        else if (segmentIndex <= UI_CONFIG.VOLUME_METER.COLOR_THRESHOLDS.YELLOW_MAX) colorClass = 'yellow';
         else colorClass = 'red';
         
         return (
@@ -49,61 +50,16 @@ const VolumeMeter: React.FC<{
 };
 
 
-/**
- * AppState represents the current state of the Vocal Mirror application.
- * 
- * State Flow:
- * Ready -> Listening -> Recording -> Playing -> Listening (cycle continues)
- *                                 \-> Ready (user interrupts)
- *    \-> Error (on failures) -> Ready (user retries)
- */
-type AppState = 
-  /** 
-   * Ready: Initial state when user has not started working with the app.
-   * Call to Action: Click to begin listening for audio input.
-   */
-  | 'ready'
-  
-  /** 
-   * Listening: App is actively listening for audio input above the volume threshold.
-   * - If audio above threshold is detected -> transitions to Recording
-   * - If user clicks button -> transitions to Ready
-   * - Audio chunks below threshold are discarded
-   */
-  | 'listening'
-  
-  /** 
-   * Recording: App is recording audio to the 5-minute buffer.
-   * - Waits for silence longer than silenceDuration threshold -> transitions to Playing
-   * - If user interrupts by pressing button -> transitions to Ready (discards all audio)
-   * - Continues recording until buffer is full or silence detected
-   */
-  | 'recording' 
-  
-  /** 
-   * Playing: App is playing back recorded audio AND listening for interruption.
-   * - If user speaks (any audible speech) -> immediately stops playback, transitions to Listening
-   * - If user presses button -> transitions to Ready (discards all audio)
-   * - When playback completes naturally -> transitions to Listening
-   */
-  | 'playing'
-  
-  /** 
-   * Error: Something went wrong (microphone permissions, audio API failure, etc.).
-   * - User can click to retry and transition back to Ready
-   * - Provides graceful error recovery mechanism
-   */
-  | 'error';
 
 function App() {
   console.log('App: Component rendering');
 
-  const [state, setState] = useState<AppState>('ready');
+  const [state, setState] = useState<VocalMirrorState>('ready');
   const [volume, setVolume] = useState<number | null>(null);
   const [bufferDuration, setBufferDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [silenceThreshold, setSilenceThreshold] = useState(-50);
-  const [silenceDuration, setSilenceDuration] = useState(0.5);
+  const [silenceThreshold, setSilenceThreshold] = useState(RECORDING_CONFIG.DEFAULT_VOLUME_THRESHOLD);
+  const [silenceDuration, setSilenceDuration] = useState(RECORDING_CONFIG.DEFAULT_SILENCE_DURATION / 1000); // Convert to seconds for UI
   const vocalMirrorRef = useRef<VocalMirror | null>(null);
 
   useEffect(() => {
@@ -289,8 +245,9 @@ function App() {
             <input
               id="silence-threshold"
               type="range"
-              min="-70"
-              max="-20"
+              min={UI_CONFIG.SLIDERS.VOLUME_THRESHOLD.MIN}
+              max={UI_CONFIG.SLIDERS.VOLUME_THRESHOLD.MAX}
+              step={UI_CONFIG.SLIDERS.VOLUME_THRESHOLD.STEP}
               value={silenceThreshold}
               onChange={handleSilenceThresholdChange}
               className="threshold-slider"
@@ -304,9 +261,9 @@ function App() {
             <input
               id="silence-duration"
               type="range"
-              min="0.1"
-              max="2.0"
-              step="0.1"
+              min={UI_CONFIG.SLIDERS.SILENCE_DURATION.MIN}
+              max={UI_CONFIG.SLIDERS.SILENCE_DURATION.MAX}
+              step={UI_CONFIG.SLIDERS.SILENCE_DURATION.STEP}
               value={silenceDuration}
               onChange={handleSilenceDurationChange}
               className="threshold-slider"
