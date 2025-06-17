@@ -4,16 +4,16 @@ import { VocalMirrorState } from './types';
 import { UI_CONFIG, RECORDING_CONFIG } from './config';
 
 // Volume meter component
-const VolumeMeter: React.FC<{ 
-  volume: number | null; 
-  isRecording: boolean; 
+const VolumeMeter: React.FC<{
+  volume: number | null;
+  isRecording: boolean;
 }> = ({ volume, isRecording }) => {
   // Calculate which segments should be lit based on volume
   // Volume ranges from -Infinity to ~0 dB
   // We'll map this to segments using configuration
   const getActiveSegments = (volumeDb: number | null): number => {
     if (!volumeDb || volumeDb === -Infinity || !isRecording) return 0;
-    
+
     // Use configured thresholds for volume meter segments
     const thresholds = UI_CONFIG.VOLUME_METER.SEGMENT_THRESHOLDS;
     for (let i = thresholds.length - 1; i >= 0; i--) {
@@ -31,13 +31,13 @@ const VolumeMeter: React.FC<{
       {[...Array(UI_CONFIG.VOLUME_METER.SEGMENT_COUNT)].map((_, index) => {
         const segmentIndex = UI_CONFIG.VOLUME_METER.SEGMENT_COUNT - 1 - index; // Bottom to top
         const isActive = segmentIndex < activeSegments;
-        
+
         // Determine color using configuration
         let colorClass = '';
         if (segmentIndex <= UI_CONFIG.VOLUME_METER.COLOR_THRESHOLDS.GREEN_MAX) colorClass = 'green';
         else if (segmentIndex <= UI_CONFIG.VOLUME_METER.COLOR_THRESHOLDS.YELLOW_MAX) colorClass = 'yellow';
         else colorClass = 'red';
-        
+
         return (
           <div
             key={index}
@@ -101,7 +101,7 @@ function App() {
   // Handle threshold and duration changes separately to avoid recreating VocalMirror
   useEffect(() => {
     if (vocalMirrorRef.current) {
-      vocalMirrorRef.current.updateSettings({ 
+      vocalMirrorRef.current.updateSettings({
         volumeThreshold: silenceThreshold,
         silenceDuration: silenceDuration * 1000 // Convert seconds to milliseconds
       });
@@ -194,9 +194,9 @@ function App() {
           disabled={false}
         >
           <div className="button-content-with-meter">
-            <VolumeMeter 
-              volume={volume} 
-              isRecording={state === 'listening' || state === 'recording'} 
+            <VolumeMeter
+              volume={volume}
+              isRecording={state === 'listening' || state === 'recording'}
             />
             <div className="button-content">
               <div className="button-text">{buttonText}</div>
@@ -253,7 +253,7 @@ function App() {
               className="threshold-slider"
             />
           </div>
-          
+
           <div className="silence-duration-control">
             <label htmlFor="silence-duration" className="threshold-label">
               Silence Duration: {silenceDuration}s
@@ -273,10 +273,10 @@ function App() {
       </div>
       <div className="resources-section">
         <h2>Vocal Training Resources</h2>
-        <p>Resources for vocal coaching:</p>
+        <p>Resources that I found online. Not affiliated and non-monetized links.</p>
 
-        <div className="resources-grid">
-          <a href="https://rogerlove.com/set-your-voice-free3/" target="_blank" rel="noopener noreferrer" className="resource-card">
+        <div className="resources-grid" visibile="false">
+          <a href="https://rogerlove.com/" target="_blank" rel="noopener noreferrer" className="resource-card">
             <div className="resource-header">
               <h3>Set Your Voice Free</h3>
               <span className="resource-author">Roger Love & Donna Frazier</span>
@@ -296,16 +296,6 @@ function App() {
             </p>
           </a>
 
-          <a href="https://www.chicagoreviewpress.com/the-voice-book-products-9781641603300.php" target="_blank" rel="noopener noreferrer" className="resource-card">
-            <div className="resource-header">
-              <h3>The Voice Book</h3>
-              <span className="resource-author">Kate DeVore & Starr Cookman</span>
-            </div>
-            <p className="resource-description">
-              Voice care, protection, and improvement with scientific methods
-            </p>
-          </a>
-
           <a href="https://www.amazon.com/Your-Voice-How-Use-Confidence/dp/0863698263" target="_blank" rel="noopener noreferrer" className="resource-card">
             <div className="resource-header">
               <h3>Your Voice and How to Use It</h3>
@@ -316,15 +306,6 @@ function App() {
             </p>
           </a>
 
-          <a href="https://uad-lab.slhs.phhp.ufl.edu/2021/03/26/vocal-function-exercises/" target="_blank" rel="noopener noreferrer" className="resource-card">
-            <div className="resource-header">
-              <h3>Vocal Function Exercises</h3>
-              <span className="resource-author">Joseph Stemple</span>
-            </div>
-            <p className="resource-description">
-              Evidence-based therapeutic exercises for vocal rehabilitation
-            </p>
-          </a>
         </div>
       </div>
       </div>
